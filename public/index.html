@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Échecs en Ligne</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .game-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .game-header h1 {
+            color: #333;
+            margin: 0 0 20px 0;
+            font-size: 2.5em;
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .player-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+
+        .player-color.white {
+            background: white;
+        }
+
+        .player-color.black {
+            background: black;
+        }
+
+        .current-turn {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .chessboard {
+            width: 480px;
+            height: 480px;
+            border: 3px solid #8b4513;
+            border-radius: 10px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 0;
+            overflow: hidden;
+        }
+
+        .square {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .square.light {
+            background-color: #f0d9b5;
+        }
+
+        .square.dark {
+            background-color: #b58863;
+        }
+
+        .square:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+
+        .square.selected {
+            background-color: #7fb069 !important;
+            box-shadow: inset 0 0 0 3px #4caf50;
+        }
+
+        .square.valid-move {
+            background-color: #90caf9 !important;
+        }
+
+        .square.last-move {
+            background-color: #ffeb3b !important;
+        }
+
+        .piece {
+            user-select: none;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        .piece:hover {
+            transform: scale(1.1);
+        }
+
+        .status-message {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .status-waiting {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-active {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .connection-form {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .connection-form input {
+            padding: 10px 15px;
+            margin: 5px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .connection-form button {
+            padding: 10px 20px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .connection-form button:hover {
+            background: #45a049;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .coordinates {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            color: #666;
+            pointer-events: none;
+        }
+
+        .coord-file {
+            bottom: 2px;
+            right: 2px;
+        }
+
+        .coord-rank {
+            top: 2px;
+            left: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-header">
+            <h1>♔ Échecs en Ligne ♛</h1>
+            
+            <div id="connectionForm" class="connection-form">
+                <input type="text" id="gameIdInput" placeholder="ID de la partie (ex: partie1)" value="partie1">
+                <input type="text" id="playerIdInput" placeholder="Votre nom" value="">
+                <button onclick="joinGame()">Rejoindre la partie</button>
+            </div>
+        </div>
+
+        <div id="gameArea" class="hidden">
+            <div class="game-info">
+                <div class="player-info">
+                    <div id="playerColor" class="player-color"></div>
+                    <span id="playerName">Vous</span>
+                </div>
+                <div class="current-turn" id="currentTurn">En attente...</div>
+                <div id="gameStatus">Connexion...</div>
+            </div>
+
+            <div class="chessboard" id="chessboard"></div>
+
+            <div id="statusMessage" class="status-message status-waiting">
+                En attente d'un autre joueur...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class ChessClient {
+            constructor() {
+                this.socket = null;
+                this.gameId = null;
+                this.playerId = null;
+                this.playerColor = null;
+                this.board = null;
+                this.selectedSquare = null;
+                this.validMoves = [];
+                this.currentPlayer = 'white';
+                this.gameStatus = 'waiting';
+                this.lastMove = null;
+                
+                this.pieceSymbols = {
+                    'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+                    'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+                };
+                
+                this.initializeBoard();
+            }
+
+            initializeBoard() {
+                const chessboard = document.getElementById('chessboard');
+                chessboard.innerHTML = '';
+                
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const square = document.createElement('div');
+                        square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                        square.dataset.row = row;
+                        square.dataset.col = col;
+                        
+                        // Ajouter les coordonnées
+                        if (col === 7) {
+                            const rankCoord = document.createElement('div');
+                            rankCoord.className = 'coordinates coord-rank';
+                            rankCoord.textContent = 8 - row;
+                            square.appendChild(rankCoord);
+                        }
+                        if (row === 7) {
+                            const fileCoord = document.createElement('div');
+                            fileCoord.className = 'coordinates coord-file';
+                            fileCoord.textContent = String.fromCharCode(97 + col);
+                            square.appendChild(fileCoord);
+                        }
+                        
+                        square.addEventListener('click', () => this.handleSquareClick(row, col));
+                        chessboard.appendChild(square);
+                    }
+                }
+            }
+
+            connect(gameId, playerId) {
+                this.gameId = gameId;
+                this.playerId = playerId;
+                this.socket = io();
+                
+                this.socket.on('connect', () => {
+                    console.log('Connecté au serveur');
+                    this.socket.emit('join-game', { gameId, playerId });
+                });
+                
+                this.socket.on('player-assigned', (data) => {
+                    this.playerColor = data.color;
+                    document.getElementById('connectionForm').classList.add('hidden');
+                    document.getElementById('gameArea').classList.remove('hidden');
+                    
+                    const colorElement = document.getElementById('playerColor');
+                    colorElement.classList.add(this.playerColor);
+                    document.getElementById('playerName').textContent = `${playerId} (${this.playerColor === 'white' ? 'Blancs' : 'Noirs'})`;
+                });
+                
+                this.socket.on('game-state', (data) => {
+                    this.board = data.board;
+                    this.currentPlayer = data.currentPlayer;
+                    this.gameStatus = data.gameStatus;
+                    this.lastMove = data.lastMove;
+                    this.updateDisplay();
+                });
+                
+                this.socket.on('game-full', () => {
+                    this.showMessage('La partie est complète!', 'error');
+                });
+                
+                this.socket.on('invalid-move', () => {
+                    this.showMessage('Mouvement invalide!', 'error');
+                    this.clearSelection();
+                });
+                
+                this.socket.on('player-disconnected', () => {
+                    this.showMessage('L\'autre joueur s\'est déconnecté', 'error');
+                });
+            }
+
+            handleSquareClick(row, col) {
+                if (this.gameStatus !== 'active' || this.currentPlayer !== this.playerColor) {
+                    return;
+                }
+
+                const piece = this.board[row][col];
+                
+                if (this.selectedSquare) {
+                    const [selectedRow, selectedCol] = this.selectedSquare;
+                    
+                    if (row === selectedRow && col === selectedCol) {
+                        // Désélectionner la case
+                        this.clearSelection();
+                        return;
+                    }
+                    
+                    // Tenter de faire un mouvement
+                    this.socket.emit('make-move', {
+                        gameId: this.gameId,
+                        from: [selectedRow, selectedCol],
+                        to: [row, col],
+                        playerId: this.playerId
+                    });
+                    
+                    this.clearSelection();
+                } else if (piece && this.isPieceOwnedByPlayer(piece)) {
+                    // Sélectionner une pièce
+                    this.selectedSquare = [row, col];
+                    this.updateDisplay();
+                }
+            }
+
+            isPieceOwnedByPlayer(piece) {
+                const isWhitePiece = piece === piece.toUpperCase();
+                return (this.playerColor === 'white' && isWhitePiece) || 
+                       (this.playerColor === 'black' && !isWhitePiece);
+            }
+
+            updateDisplay() {
+                this.renderBoard();
+                this.updateGameInfo();
+                this.updateStatusMessage();
+            }
+
+            renderBoard() {
+                const squares = document.querySelectorAll('.square');
+                
+                squares.forEach((square, index) => {
+                    const row = Math.floor(index / 8);
+                    const col = index % 8;
+                    const piece = this.board[row][col];
+                    
+                    // Nettoyer les classes spéciales
+                    square.classList.remove('selected', 'valid-move', 'last-move');
+                    
+                    // Afficher la pièce
+                    const existingPiece = square.querySelector('.piece');
+                    if (existingPiece) {
+                        existingPiece.remove();
+                    }
+                    
+                    if (piece) {
+                        const pieceElement = document.createElement('div');
+                        pieceElement.className = 'piece';
+                        pieceElement.textContent = this.pieceSymbols[piece];
+                        square.appendChild(pieceElement);
+                    }
+                    
+                    // Marquer la case sélectionnée
+                    if (this.selectedSquare && 
+                        this.selectedSquare[0] === row && 
+                        this.selectedSquare[1] === col) {
+                        square.classList.add('selected');
+                    }
+                    
+                    // Marquer le dernier mouvement
+                    if (this.lastMove) {
+                        const [fromRow, fromCol] = this.lastMove.from;
+                        const [toRow, toCol] = this.lastMove.to;
+                        if ((row === fromRow && col === fromCol) || 
+                            (row === toRow && col === toCol)) {
+                            square.classList.add('last-move');
+                        }
+                    }
+                });
+            }
+
+            updateGameInfo() {
+                const currentTurnElement = document.getElementById('currentTurn');
+                const isMyTurn = this.currentPlayer === this.playerColor;
+                
+                if (this.gameStatus === 'active') {
+                    currentTurnElement.textContent = isMyTurn ? 'Votre tour' : `Tour des ${this.currentPlayer === 'white' ? 'Blancs' : 'Noirs'}`;
+                } else {
+                    currentTurnElement.textContent = 'En attente...';
+                }
+            }
+
+            updateStatusMessage() {
+                const statusElement = document.getElementById('statusMessage');
+                
+                switch (this.gameStatus) {
+                    case 'waiting':
+                        statusElement.textContent = 'En attente d\'un autre joueur...';
+                        statusElement.className = 'status-message status-waiting';
+                        break;
+                    case 'active':
+                        const isMyTurn = this.currentPlayer === this.playerColor;
+                        statusElement.textContent = isMyTurn ? 'C\'est à votre tour de jouer!' : 'En attente du mouvement adverse...';
+                        statusElement.className = 'status-message status-active';
+                        break;
+                    case 'finished':
+                        statusElement.textContent = 'Partie terminée';
+                        statusElement.className = 'status-message status-error';
+                        break;
+                }
+            }
+
+            clearSelection() {
+                this.selectedSquare = null;
+                this.validMoves = [];
+                this.updateDisplay();
+            }
+
+            showMessage(message, type) {
+                const statusElement = document.getElementById('statusMessage');
+                statusElement.textContent = message;
+                statusElement.className = `status-message status-${type}`;
+                
+                setTimeout(() => {
+                    this.updateStatusMessage();
+                }, 3000);
+            }
+        }
+
+        let chessClient;
+
+        function joinGame() {
+            const gameId = document.getElementById('gameIdInput').value.trim();
+            const playerId = document.getElementById('playerIdInput').value.trim();
+            
+            if (!gameId || !playerId) {
+                alert('Veuillez entrer un ID de partie et votre nom');
+                return;
+            }
+            
+            chessClient = new ChessClient();
+            chessClient.connect(gameId, playerId);
+        }
+
+        // Générer un nom de joueur aléatoire
+        function generateRandomName() {
+            const adjectives = ['Rapide', 'Sage', 'Brave', 'Rusé', 'Noble'];
+            const nouns = ['Cavalier', 'Roi', 'Dame', 'Tour', 'Fou'];
+            return adjectives[Math.floor(Math.random() * adjectives.length)] + 
+                   nouns[Math.floor(Math.random() * nouns.length)];
+        }
+
+        // Initialiser avec un nom aléatoire
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('playerIdInput').value = generateRandomName();
+        });
+    </script>
+</body>
+</html>
