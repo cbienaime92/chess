@@ -163,19 +163,22 @@ class ChessGame {
         this.board[toRow][toCol] = piece;
         this.board[fromRow][fromCol] = null;
 
-        // Enregistrer le mouvement
-        this.moves.push({
+        // Enregistrer le mouvement avec plus d'informations
+        const move = {
             from,
             to,
             piece,
             capturedPiece,
-            player: player.color
-        });
+            player: player.color,
+            moveNumber: this.moves.length + 1
+        };
+
+        this.moves.push(move);
 
         // Changer de joueur
         this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
 
-        return true;
+        return move; // Retourner l'objet move complet
     }
 }
 
@@ -202,7 +205,8 @@ io.on('connection', (socket) => {
                 board: game.board,
                 currentPlayer: game.currentPlayer,
                 gameStatus: game.gameStatus,
-                players: game.players.map(p => ({ color: p.color, id: p.id }))
+                players: game.players.map(p => ({ color: p.color, id: p.id })),
+                moves: game.moves
             });
 
             console.log(`Joueur ${playerId} rejoint la partie ${gameId} en tant que ${playerColor}`);
@@ -215,18 +219,44 @@ io.on('connection', (socket) => {
         const { gameId, from, to, playerId } = data;
         const game = games.get(gameId);
 
-        if (game && game.makeMove(from, to, playerId)) {
-            // Diffuser le nouvel état du jeu
-            io.to(gameId).emit('game-state', {
+        if (game) {
+            const moveResult = game.makeMove(from, to, playerId);
+
+            if (moveResult) {
+                // Diffuser le nouvel état du jeu à TOUS les joueurs de la partie
+                const gameState = {
+                    board: game.board,
+                    currentPlayer: game.currentPlayer,
+                    gameStatus: game.gameStatus,
+                    lastMove: moveResult,
+                    moves: game.moves
+                };
+
+                io.to(gameId).emit('game-state', gameState);
+
+                console.log(`Mouvement effectué dans la partie ${gameId}:`, from, 'vers', to, 'par', playerId);
+                console.log('État diffusé à tous les joueurs de la partie');
+            } else {
+                socket.emit('invalid-move', { reason: 'Mouvement invalide' });
+                console.log(`Mouvement invalide dans la partie ${gameId}:`, from, 'vers', to, 'par', playerId);
+            }
+        } else {
+            socket.emit('game-not-found');
+        }
+    });
+
+    socket.on('request-game-state', (data) => {
+        const { gameId } = data;
+        const game = games.get(gameId);
+
+        if (game) {
+            socket.emit('game-state', {
                 board: game.board,
                 currentPlayer: game.currentPlayer,
                 gameStatus: game.gameStatus,
-                lastMove: { from, to }
+                lastMove: game.moves.length > 0 ? game.moves[game.moves.length - 1] : null,
+                moves: game.moves
             });
-
-            console.log(`Mouvement effectué dans la partie ${gameId}:`, from, 'vers', to);
-        } else {
-            socket.emit('invalid-move');
         }
     });
 

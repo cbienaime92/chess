@@ -22,8 +22,21 @@
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             padding: 30px;
-            max-width: 800px;
+            max-width: 1200px;
             width: 100%;
+            display: flex;
+            gap: 30px;
+        }
+
+        .game-left {
+            flex: 1;
+        }
+
+        .game-right {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         .game-header {
@@ -84,6 +97,15 @@
             grid-template-rows: repeat(8, 1fr);
             gap: 0;
             overflow: hidden;
+            transition: transform 0.5s ease;
+        }
+
+        .chessboard.flipped {
+            transform: rotate(180deg);
+        }
+
+        .chessboard.flipped .square {
+            transform: rotate(180deg);
         }
 
         .square {
@@ -210,6 +232,117 @@
             top: 2px;
             left: 2px;
         }
+
+        /* Historique des coups */
+        .moves-history {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .moves-history h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 1.2em;
+            text-align: center;
+        }
+
+        .moves-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: white;
+        }
+
+        .move-pair {
+            display: flex;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .move-number {
+            width: 30px;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .move-item {
+            flex: 1;
+            padding: 4px 8px;
+            margin: 0 2px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .move-item:hover {
+            background-color: #e3f2fd;
+        }
+
+        .move-item.current {
+            background-color: #4caf50;
+            color: white;
+        }
+
+        .move-item.viewing {
+            background-color: #ff9800;
+            color: white;
+        }
+
+        .history-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .history-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .history-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .history-btn.nav {
+            background: #2196f3;
+            color: white;
+        }
+
+        .history-btn.nav:hover:not(:disabled) {
+            background: #1976d2;
+        }
+
+        .history-btn.return {
+            background: #4caf50;
+            color: white;
+        }
+
+        .history-btn.return:hover:not(:disabled) {
+            background: #45a049;
+        }
+
+        .viewing-indicator {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -225,19 +358,44 @@
         </div>
 
         <div id="gameArea" class="hidden">
-            <div class="game-info">
-                <div class="player-info">
-                    <div id="playerColor" class="player-color"></div>
-                    <span id="playerName">Vous</span>
+            <div class="game-left">
+                <div class="game-info">
+                    <div class="player-info">
+                        <div id="playerColor" class="player-color"></div>
+                        <span id="playerName">Vous</span>
+                    </div>
+                    <div class="current-turn" id="currentTurn">En attente...</div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <div id="opponentInfo">En attente d'un adversaire...</div>
+                        <button class="history-btn nav" onclick="chessClient.flipBoard()" title="Retourner l'échiquier">🔄</button>
+                    </div>
                 </div>
-                <div class="current-turn" id="currentTurn">En attente...</div>
-                <div id="gameStatus">Connexion...</div>
+
+                <div id="viewingIndicator" class="viewing-indicator hidden">
+                    📖 Mode consultation - Position du coup <span id="viewingMove"></span>
+                </div>
+
+                <div class="chessboard" id="chessboard"></div>
+
+                <div id="statusMessage" class="status-message status-waiting">
+                    En attente d'un autre joueur...
+                </div>
             </div>
 
-            <div class="chessboard" id="chessboard"></div>
-
-            <div id="statusMessage" class="status-message status-waiting">
-                En attente d'un autre joueur...
+            <div class="game-right">
+                <div class="moves-history">
+                    <h3>📜 Historique des coups</h3>
+                    <div class="moves-list" id="movesList">
+                        <div style="text-align: center; color: #666; font-style: italic; margin-top: 20px;">
+                            Aucun coup joué pour le moment
+                        </div>
+                    </div>
+                    <div class="history-controls">
+                        <button class="history-btn nav" id="prevMoveBtn" onclick="chessClient.navigateHistory(-1)" disabled>← Précédent</button>
+                        <button class="history-btn nav" id="nextMoveBtn" onclick="chessClient.navigateHistory(1)" disabled>Suivant →</button>
+                        <button class="history-btn return" id="returnToGameBtn" onclick="chessClient.returnToCurrentGame()" disabled>🔄 Actuel</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -255,6 +413,14 @@
                 this.currentPlayer = 'white';
                 this.gameStatus = 'waiting';
                 this.lastMove = null;
+                this.opponentName = null;
+                this.players = [];
+                
+                // Historique des coups
+                this.moveHistory = [];
+                this.currentMoveIndex = -1;
+                this.viewingHistoryIndex = -1;
+                this.isViewingHistory = false;
                 
                 this.pieceSymbols = {
                     'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
@@ -275,24 +441,66 @@
                         square.dataset.row = row;
                         square.dataset.col = col;
                         
-                        // Ajouter les coordonnées
-                        if (col === 7) {
-                            const rankCoord = document.createElement('div');
-                            rankCoord.className = 'coordinates coord-rank';
-                            rankCoord.textContent = 8 - row;
-                            square.appendChild(rankCoord);
-                        }
-                        if (row === 7) {
-                            const fileCoord = document.createElement('div');
-                            fileCoord.className = 'coordinates coord-file';
-                            fileCoord.textContent = String.fromCharCode(97 + col);
-                            square.appendChild(fileCoord);
-                        }
+                        // Ajouter les coordonnées (s'ajusteront selon l'orientation)
+                        this.addCoordinates(square, row, col);
                         
                         square.addEventListener('click', () => this.handleSquareClick(row, col));
                         chessboard.appendChild(square);
                     }
                 }
+            }
+
+            addCoordinates(square, row, col) {
+                const chessboard = document.getElementById('chessboard');
+                const isFlipped = chessboard ? chessboard.classList.contains('flipped') : false;
+                
+                // Coordonnées des fichiers (a-h)
+                if ((isFlipped && row === 0) || (!isFlipped && row === 7)) {
+                    const fileCoord = document.createElement('div');
+                    fileCoord.className = 'coordinates coord-file';
+                    const fileChar = isFlipped ? 
+                        String.fromCharCode(104 - col) :  // h->a pour retourné
+                        String.fromCharCode(97 + col);    // a->h pour normal
+                    fileCoord.textContent = fileChar;
+                    square.appendChild(fileCoord);
+                }
+                
+                // Coordonnées des rangées (1-8)
+                if ((isFlipped && col === 7) || (!isFlipped && col === 0)) {
+                    const rankCoord = document.createElement('div');
+                    rankCoord.className = 'coordinates coord-rank';
+                    const rankNum = isFlipped ? 
+                        row + 1 :           // 1->8 pour retourné
+                        8 - row;            // 8->1 pour normal
+                    rankCoord.textContent = rankNum;
+                    square.appendChild(rankCoord);
+                }
+            }
+
+            updateBoardOrientation() {
+                const chessboard = document.getElementById('chessboard');
+                
+                if (this.playerColor === 'black') {
+                    chessboard.classList.add('flipped');
+                } else {
+                    chessboard.classList.remove('flipped');
+                }
+                
+                // Remettre à jour les coordonnées
+                this.updateCoordinates();
+            }
+
+            updateCoordinates() {
+                // Supprimer toutes les coordonnées existantes
+                document.querySelectorAll('.coordinates').forEach(coord => coord.remove());
+                
+                // Re-ajouter les coordonnées avec la bonne orientation
+                const squares = document.querySelectorAll('.square');
+                squares.forEach(square => {
+                    const row = parseInt(square.dataset.row);
+                    const col = parseInt(square.dataset.col);
+                    this.addCoordinates(square, row, col);
+                });
             }
 
             connect(gameId, playerId) {
@@ -313,13 +521,42 @@
                     const colorElement = document.getElementById('playerColor');
                     colorElement.classList.add(this.playerColor);
                     document.getElementById('playerName').textContent = `${playerId} (${this.playerColor === 'white' ? 'Blancs' : 'Noirs'})`;
+                    
+                    // Orienter l'échiquier selon la couleur du joueur
+                    this.updateBoardOrientation();
                 });
                 
                 this.socket.on('game-state', (data) => {
+                    console.log('État de jeu reçu:', data);
+                    
                     this.board = data.board;
                     this.currentPlayer = data.currentPlayer;
                     this.gameStatus = data.gameStatus;
                     this.lastMove = data.lastMove;
+                    
+                    // Mettre à jour les informations des joueurs
+                    if (data.players) {
+                        this.players = data.players;
+                        this.updateOpponentInfo();
+                    }
+                    
+                    // Synchroniser l'historique avec le serveur
+                    if (data.moves) {
+                        this.synchronizeHistory(data.moves);
+                    }
+                    
+                    // Si on était en train de consulter l'historique et qu'un nouveau coup arrive
+                    if (this.isViewingHistory && data.lastMove) {
+                        // Notifier qu'un nouveau coup a été joué
+                        this.showMessage('Nouveau coup joué ! Historique mis à jour.', 'active');
+                    }
+                    
+                    // Revenir au jeu actuel automatiquement si un nouveau coup est joué
+                    if (this.isViewingHistory && data.lastMove && 
+                        data.moves.length > this.moveHistory.length) {
+                        this.returnToCurrentGame();
+                    }
+                    
                     this.updateDisplay();
                 });
                 
@@ -327,17 +564,38 @@
                     this.showMessage('La partie est complète!', 'error');
                 });
                 
-                this.socket.on('invalid-move', () => {
+                this.socket.on('invalid-move', (data) => {
+                    console.log('Mouvement invalide:', data);
                     this.showMessage('Mouvement invalide!', 'error');
                     this.clearSelection();
                 });
                 
+                this.socket.on('game-not-found', () => {
+                    this.showMessage('Partie non trouvée!', 'error');
+                });
+                
+                this.socket.on('connect', () => {
+                    console.log('Connecté au serveur WebSocket');
+                });
+                
+                this.socket.on('disconnect', () => {
+                    console.log('Déconnecté du serveur WebSocket');
+                    this.showMessage('Connexion perdue, tentative de reconnexion...', 'error');
+                });
+                
                 this.socket.on('player-disconnected', () => {
                     this.showMessage('L\'autre joueur s\'est déconnecté', 'error');
+                    this.updateOpponentInfo(); // Mettre à jour l'affichage de l'adversaire
                 });
             }
 
             handleSquareClick(row, col) {
+                // Ne pas permettre de jouer si on consulte l'historique
+                if (this.isViewingHistory) {
+                    this.showMessage('Revenez au jeu actuel pour jouer', 'error');
+                    return;
+                }
+                
                 if (this.gameStatus !== 'active' || this.currentPlayer !== this.playerColor) {
                     return;
                 }
@@ -354,6 +612,13 @@
                     }
                     
                     // Tenter de faire un mouvement
+                    console.log('Envoi du mouvement:', {
+                        gameId: this.gameId,
+                        from: [selectedRow, selectedCol],
+                        to: [row, col],
+                        playerId: this.playerId
+                    });
+                    
                     this.socket.emit('make-move', {
                         gameId: this.gameId,
                         from: [selectedRow, selectedCol],
@@ -378,7 +643,10 @@
             updateDisplay() {
                 this.renderBoard();
                 this.updateGameInfo();
+                this.updateOpponentInfo();
                 this.updateStatusMessage();
+                this.updateHistoryDisplay();
+                this.updateHistoryControls();
             }
 
             renderBoard() {
@@ -429,9 +697,40 @@
                 const isMyTurn = this.currentPlayer === this.playerColor;
                 
                 if (this.gameStatus === 'active') {
-                    currentTurnElement.textContent = isMyTurn ? 'Votre tour' : `Tour des ${this.currentPlayer === 'white' ? 'Blancs' : 'Noirs'}`;
+                    if (isMyTurn) {
+                        currentTurnElement.textContent = '🎯 Votre tour';
+                        currentTurnElement.style.color = '#4caf50';
+                        currentTurnElement.style.fontWeight = 'bold';
+                    } else {
+                        const opponentColor = this.currentPlayer === 'white' ? 'Blancs' : 'Noirs';
+                        currentTurnElement.textContent = `⏳ Tour des ${opponentColor}`;
+                        currentTurnElement.style.color = '#ff9800';
+                        currentTurnElement.style.fontWeight = 'normal';
+                    }
                 } else {
                     currentTurnElement.textContent = 'En attente...';
+                    currentTurnElement.style.color = '#666';
+                    currentTurnElement.style.fontWeight = 'normal';
+                }
+            }
+
+            updateOpponentInfo() {
+                const opponentInfoElement = document.getElementById('opponentInfo');
+                
+                if (this.gameStatus === 'waiting') {
+                    opponentInfoElement.textContent = '⏳ En attente d\'un adversaire...';
+                    opponentInfoElement.style.color = '#ff9800';
+                } else if (this.players.length >= 2) {
+                    // Trouver l'adversaire
+                    const opponent = this.players.find(p => p.id !== this.playerId);
+                    if (opponent) {
+                        const opponentColorEmoji = opponent.color === 'white' ? '⚪' : '⚫';
+                        opponentInfoElement.textContent = `${opponentColorEmoji} ${opponent.id}`;
+                        opponentInfoElement.style.color = '#2c3e50';
+                    }
+                } else {
+                    opponentInfoElement.textContent = '❌ Adversaire déconnecté';
+                    opponentInfoElement.style.color = '#e74c3c';
                 }
             }
 
@@ -469,6 +768,207 @@
                 setTimeout(() => {
                     this.updateStatusMessage();
                 }, 3000);
+            }
+
+            // === MÉTHODES POUR L'HISTORIQUE ===
+            
+            synchronizeHistory(serverMoves) {
+                // Reconstruire l'historique depuis les données du serveur
+                this.moveHistory = [];
+                
+                if (serverMoves && serverMoves.length > 0) {
+                    let currentBoard = this.getInitialBoard();
+                    
+                    serverMoves.forEach((move, index) => {
+                        // Appliquer le mouvement sur le plateau
+                        const [fromRow, fromCol] = move.from;
+                        const [toRow, toCol] = move.to;
+                        
+                        currentBoard[toRow][toCol] = currentBoard[fromRow][fromCol];
+                        currentBoard[fromRow][fromCol] = null;
+                        
+                        // Ajouter à l'historique
+                        const notation = this.getMoveNotation(move);
+                        const historyMove = {
+                            ...move,
+                            notation,
+                            boardAfter: this.cloneBoard(currentBoard)
+                        };
+                        
+                        this.moveHistory.push(historyMove);
+                    });
+                    
+                    this.currentMoveIndex = this.moveHistory.length - 1;
+                }
+                
+                console.log('Historique synchronisé:', this.moveHistory.length, 'coups');
+            }
+            
+            addMoveToHistory(move) {
+                const notation = this.getMoveNotation(move);
+                const historyMove = {
+                    ...move,
+                    notation,
+                    boardAfter: this.cloneBoard(this.board)
+                };
+                
+                this.moveHistory.push(historyMove);
+                this.currentMoveIndex = this.moveHistory.length - 1;
+            }
+
+            getMoveNotation(move) {
+                const { from, to, piece, capturedPiece } = move;
+                const [fromRow, fromCol] = from;
+                const [toRow, toCol] = to;
+                
+                const fromSquare = String.fromCharCode(97 + fromCol) + (8 - fromRow);
+                const toSquare = String.fromCharCode(97 + toCol) + (8 - toRow);
+                
+                const pieceSymbol = piece.toUpperCase() === 'P' ? '' : piece.toUpperCase();
+                const captureSymbol = capturedPiece ? 'x' : '';
+                
+                return `${pieceSymbol}${captureSymbol}${toSquare}`;
+            }
+
+            cloneBoard(board) {
+                return board.map(row => [...row]);
+            }
+
+            navigateHistory(direction) {
+                const newIndex = this.viewingHistoryIndex + direction;
+                
+                if (newIndex < -1 || newIndex >= this.moveHistory.length) {
+                    return;
+                }
+                
+                this.viewingHistoryIndex = newIndex;
+                this.isViewingHistory = newIndex >= 0;
+                
+                if (this.isViewingHistory) {
+                    // Afficher la position après le coup sélectionné
+                    this.board = this.cloneBoard(this.moveHistory[newIndex].boardAfter);
+                } else {
+                    // Revenir à la position initiale
+                    this.board = this.getInitialBoard();
+                }
+                
+                this.clearSelection();
+                this.updateDisplay();
+            }
+
+            returnToCurrentGame() {
+                this.isViewingHistory = false;
+                this.viewingHistoryIndex = -1;
+                
+                // Demander l'état actuel du jeu au serveur
+                if (this.socket && this.gameId) {
+                    this.socket.emit('request-game-state', { gameId: this.gameId });
+                }
+                
+                this.clearSelection();
+                this.updateDisplay();
+            }
+
+            getInitialBoard() {
+                return [
+                    ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    [null, null, null, null, null, null, null, null],
+                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
+                ];
+            }
+
+            updateHistoryDisplay() {
+                const movesList = document.getElementById('movesList');
+                
+                if (this.moveHistory.length === 0) {
+                    movesList.innerHTML = '<div style="text-align: center; color: #666; font-style: italic; margin-top: 20px;">Aucun coup joué pour le moment</div>';
+                    return;
+                }
+                
+                let html = '';
+                for (let i = 0; i < this.moveHistory.length; i += 2) {
+                    const moveNumber = Math.floor(i / 2) + 1;
+                    const whiteMove = this.moveHistory[i];
+                    const blackMove = this.moveHistory[i + 1];
+                    
+                    html += '<div class="move-pair">';
+                    html += `<div class="move-number">${moveNumber}.</div>`;
+                    
+                    // Coup des blancs
+                    const whiteClass = this.getMoveClass(i);
+                    html += `<div class="move-item ${whiteClass}" onclick="chessClient.jumpToMove(${i})">${whiteMove.notation}</div>`;
+                    
+                    // Coup des noirs (s'il existe)
+                    if (blackMove) {
+                        const blackClass = this.getMoveClass(i + 1);
+                        html += `<div class="move-item ${blackClass}" onclick="chessClient.jumpToMove(${i + 1})">${blackMove.notation}</div>`;
+                    }
+                    
+                    html += '</div>';
+                }
+                
+                movesList.innerHTML = html;
+                
+                // Faire défiler vers le bas pour voir le dernier coup
+                movesList.scrollTop = movesList.scrollHeight;
+            }
+
+            getMoveClass(moveIndex) {
+                if (this.isViewingHistory && moveIndex === this.viewingHistoryIndex) {
+                    return 'viewing';
+                } else if (!this.isViewingHistory && moveIndex === this.currentMoveIndex) {
+                    return 'current';
+                }
+                return '';
+            }
+
+            jumpToMove(moveIndex) {
+                this.viewingHistoryIndex = moveIndex;
+                this.isViewingHistory = true;
+                this.board = this.cloneBoard(this.moveHistory[moveIndex].boardAfter);
+                this.clearSelection();
+                this.updateDisplay();
+            }
+
+            updateHistoryControls() {
+                const prevBtn = document.getElementById('prevMoveBtn');
+                const nextBtn = document.getElementById('nextMoveBtn');
+                const returnBtn = document.getElementById('returnToGameBtn');
+                const viewingIndicator = document.getElementById('viewingIndicator');
+                const viewingMove = document.getElementById('viewingMove');
+                
+                // Activer/désactiver les boutons
+                prevBtn.disabled = this.viewingHistoryIndex <= -1;
+                nextBtn.disabled = this.viewingHistoryIndex >= this.moveHistory.length - 1;
+                returnBtn.disabled = !this.isViewingHistory;
+                
+                // Afficher/masquer l'indicateur de consultation
+                if (this.isViewingHistory) {
+                    viewingIndicator.classList.remove('hidden');
+                    viewingMove.textContent = this.viewingHistoryIndex + 1;
+                } else {
+                    viewingIndicator.classList.add('hidden');
+                }
+            }
+
+            // Fonction pour retourner l'échiquier manuellement
+            flipBoard() {
+                const chessboard = document.getElementById('chessboard');
+                const isCurrentlyFlipped = chessboard.classList.contains('flipped');
+                
+                if (isCurrentlyFlipped) {
+                    chessboard.classList.remove('flipped');
+                } else {
+                    chessboard.classList.add('flipped');
+                }
+                
+                // Mettre à jour les coordonnées selon la nouvelle orientation
+                this.updateCoordinates();
             }
         }
 
