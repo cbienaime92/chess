@@ -1,18 +1,18 @@
 # 🏁 Serveur d'Échecs Multijoueur
 
-Application web d'échecs en temps réel pour 2 joueurs avec historique des coups et moteur IA intégré.
+Application web d'échecs en temps réel pour 2 joueurs ou contre IA, avec historique des coups et système de reconnexion automatique.
 
 ## ✨ Fonctionnalités
 
 - 🎮 **Jeu d'échecs 2 joueurs** en temps réel via WebSocket
+- 🤖 **Jeu contre IA** avec 5 niveaux de difficulté (débutant à expert)
 - 📜 **Historique complet** des coups avec notation algébrique
 - 👥 **Mode spectateur** pour regarder les parties
-- 🤖 **Moteur IA intégré** pour l'analyse de position
-- 📈 **Suggestions de coups** via le moteur
-- 📊 **Interface d'administration** pour surveiller les parties
-- 🔄 **Reconnexion automatique** en cas de déconnexion
-- ♛ **Orientation de l'échiquier** selon la couleur du joueur
-- ⚡ **Mise à jour en temps réel** des deux côtés
+- 🔄 **Reconnexion automatique** en cas de fermeture de fenêtre
+- ♛ **Orientation de l'échiquier** selon la couleur du joueur (noirs en bas pour les noirs)
+- ⚡ **Mise à jour optimiste** - les coups apparaissent instantanément
+- 📊 **Interface d'administration** pour surveiller toutes les parties
+- 💾 **Sauvegarde automatique** des parties en cours
 
 ## 🚀 Installation
 
@@ -52,44 +52,81 @@ docker-compose up --build
 ## 📁 Structure du projet
 
 ```
-chess-server/
-├── server.js              # Serveur Express + Socket.io
-├── chess-engine.js         # Moteur IA avec minimax
-├── game-manager.js         # Gestionnaire des parties
-├── package.json           # Dépendances npm
-├── Dockerfile             # Image Docker (optionnel)
-├── docker-compose.yml     # Orchestration (optionnel)
-└── public/
-    ├── index.html          # Interface de jeu
-    └── admin.html          # Interface d'administration
+chess-multiplayer-server/
+├── 📄 CORE APPLICATION
+│   ├── server.js              ← server_final_clean
+│   ├── chess-engine.js        ← chess_engine_simple (IA ultra-rapide)
+│   ├── game-manager.js        ← game_manager_clean
+│   └── package.json          ← clean_package_json
+│
+├── 🌐 INTERFACES
+│   ├── public/index.html      ← chess_html_final (interface complète)
+│   └── public/admin.html      ← admin_interface
+│
+├── 🐳 DOCKER (optionnel)
+│   ├── Dockerfile            ← minimal_dockerfile
+│   └── docker-compose.yml    ← minimal_docker_compose
+│
+└── 📚 DOCUMENTATION
+    └── README.md             ← readme_final (ce fichier)
 ```
 
 ## 🎯 Utilisation
 
-### Créer une partie
+### Créer une partie multijoueur
 1. Aller sur `http://localhost:3000`
-2. Entrer votre nom
-3. Laisser l'ID de partie vide (généré automatiquement)
-4. Cliquer sur "Rejoindre la partie"
-5. Partager l'ID avec votre adversaire
+2. Sélectionner "👥 Contre un ami"
+3. Entrer votre nom
+4. Laisser l'ID de partie vide (généré automatiquement) ou entrer un ID existant
+5. Cliquer sur "Commencer la partie"
+6. Partager l'ID avec votre adversaire
 
-### Rejoindre une partie
+### Jouer contre l'IA
+1. Aller sur `http://localhost:3000`
+2. Sélectionner "🤖 Contre l'IA"
+3. Entrer votre nom
+4. Choisir le niveau de difficulté (1-5)
+5. Cliquer sur "Commencer la partie"
+6. Vous jouez toujours les blancs contre l'IA
+
+### Rejoindre une partie existante
 1. Entrer l'ID de la partie fourni par l'autre joueur
 2. Ou utiliser le lien direct : `http://localhost:3000/game/GAMEID`
 
+### Reconnexion automatique
+- Si vous fermez la fenêtre par accident, rechargez la page
+- Une popup vous proposera de vous reconnecter automatiquement
+- Votre adversaire verra "X s'est reconnecté !" quand vous revenez
+- La partie continue exactement où elle s'était arrêtée
+
 ### Interface d'administration
 - Accéder à `http://localhost:3000/admin`
-- Voir toutes les parties en cours
+- Voir toutes les parties en cours (multijoueur et IA)
 - Statistiques en temps réel
-- Surveillance des connexions
+- Surveillance des connexions et déconnexions
 
 ## 🎮 Comment jouer
 
+### Contrôles de base
 1. **Sélectionner une pièce** : Cliquer sur une de vos pièces
 2. **Déplacer** : Cliquer sur la case de destination
-3. **Tour** : Les joueurs alternent automatiquement
-4. **Historique** : Visible en temps réel à droite
-5. **Reconnexion** : Actualiser la page reconnecte automatiquement
+3. **Annuler la sélection** : Cliquer sur une case vide
+4. **Tour** : Les joueurs alternent automatiquement
+5. **Historique** : Visible en temps réel dans le panneau de droite
+
+### Niveaux d'IA
+- **Niveau 1** : Débutant (~0.1s) - Coups complètement aléatoires
+- **Niveau 2** : Facile (~0.2s) - Préfère capturer les pièces
+- **Niveau 3** : Moyen (~0.5s) - Évalue 1 coup à l'avance
+- **Niveau 4** : Difficile (~2s) - Évaluation plus poussée
+- **Niveau 5** : Expert (~5s) - IA la plus forte disponible
+
+### Fonctionnalités avancées
+- **Reconnexion** : Fermez et rouvrez - la partie vous attend 5 minutes
+- **Orientation** : L'échiquier s'oriente selon votre couleur
+- **Mise à jour optimiste** : Vos coups apparaissent instantanément
+- **Mode spectateur** : Les parties complètes deviennent observables
+- **Copier lien** : Bouton pour partager l'URL de la partie
 
 ## 🛠️ Développement
 
@@ -126,11 +163,11 @@ PORT=3000              # Port du serveur
 NODE_ENV=production    # Environnement
 ```
 
-### Moteur d'analyse IA
-- Algorithme minimax avec élagage alpha-beta
-- Évaluation basée sur les pièces et positions
-- Analyse des parties terminées
-- Suggestions de coups (via API)
+### Moteur d'IA ultra-rapide
+- Algorithme simplifié garantissant des réponses < 1 seconde
+- 5 niveaux adaptatifs selon le temps de réflexion souhaité
+- Gestion d'erreurs robuste avec coups de secours
+- Évaluation basée sur la valeur des pièces et captures prioritaires
 
 ## 🚨 Résolution de problèmes
 
@@ -148,15 +185,25 @@ docker-compose down
 docker-compose up --build
 ```
 
+### Problèmes de reconnexion
+- Cliquer sur "🗑️ Effacer les données sauvegardées" sur la page d'accueil
+- Actualiser la page et rejoindre normalement
+- Vérifier que vous utilisez le même nom qu'avant
+
 ### Les pièces ne bougent pas
 - Vérifier les logs : `docker-compose logs -f`
-- S'assurer que les deux joueurs sont connectés
+- S'assurer que c'est votre tour (joueur actif en vert)
 - Actualiser la page pour reconnecter
 
-### Problèmes de connexion
-- Vérifier que le conteneur fonctionne : `docker-compose ps`
-- Tester l'API : `http://localhost:3000/api/games`
+### L'IA est trop lente ou ne joue pas
+- L'IA niveau 1-3 devrait jouer en moins d'1 seconde
+- Si plus lent, vérifier les logs serveur
 - Redémarrer : `docker-compose restart`
+
+### Problèmes d'affichage
+- Vérifier que vous utilisez `chess_html_final` pour index.html
+- Aucun code JavaScript ne doit être visible dans la page
+- Vider le cache du navigateur (Ctrl+F5)
 
 ## 📊 API REST
 
@@ -168,14 +215,16 @@ POST /api/analyze-position          # Analyser une position FEN
 
 ## 🎯 Prochaines améliorations
 
-- [ ] **Jeu contre IA** avec niveaux de difficulté
-- [ ] Chat entre joueurs
-- [ ] Système de classement
-- [ ] Parties privées avec mot de passe
-- [ ] Sauvegarde des parties terminées
-- [ ] Thèmes d'échiquier personnalisés
-- [ ] Mode tournoi
-- [ ] Application mobile
+- [ ] **Chat en direct** entre joueurs pendant la partie
+- [ ] **Système de classement ELO** pour les parties multijoueur
+- [ ] **Parties privées** avec mot de passe
+- [ ] **Sauvegarde** des parties terminées dans une base de données
+- [ ] **Thèmes d'échiquier** personnalisés (bois, marbre, néon)
+- [ ] **Mode tournoi** avec élimination ou round-robin
+- [ ] **Variantes d'échecs** : Chess960, King of the Hill
+- [ ] **Application mobile** React Native
+- [ ] **Analyse post-partie** avec graphiques de précision
+- [ ] **Puzzles d'échecs** quotidiens
 
 ## 📄 Licence
 
@@ -186,11 +235,16 @@ MIT License - Libre d'utilisation et modification
 En cas de problème :
 1. Vérifier les logs Docker : `docker-compose logs`
 2. Vérifier l'état des conteneurs : `docker-compose ps`
-3. Reconstruire si nécessaire : `docker-compose up --build`
-4. S'assurer que le port 3000 est libre sur l'hôte
+3. Tester l'API : `curl http://localhost:3000/api/games`
+4. Pour les problèmes de reconnexion : effacer les données sauvegardées
+5. Reconstruire si nécessaire : `docker-compose up --build`
+
+### Logs utiles à surveiller
+- `🔌 Nouvelle connexion: socket123` - Connexion réussie
+- `🔄 Reconnexion du joueur blanc: Alice` - Reconnexion détectée
+- `🤖 IA niveau 3 - Meilleur coup: e2e4` - IA fonctionne
+- `❌ Erreur dans getBestMove` - Problème IA à investiguer
 
 ---
 
-**Développé avec ❤️ pour la communauté des échecs**
-
-🎮 **Bon jeu !** ♛♚
+**🎮 Bon jeu d'échecs ! Que le meilleur joueur gagne ! ♛♚**
