@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -68,13 +67,59 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
-// WebSocket avec debug détaillé
+// Fonction pour faire jouer l'IA
+function makeAIMove(gameId) {
+    const game = gameManager.getGame(gameId);
+    if (!game || !game.isAIGame || game.gameState !== 'playing') {
+        return;
+    }
+
+    console.log(`🤖 IA réfléchit pour la partie ${gameId}...`);
+    
+    const aiMove = game.engine.getBestMove();
+    
+    if (aiMove) {
+        console.log(`🎯 IA joue: ${aiMove.from} → ${aiMove.to}`);
+        
+        const result = gameManager.makeAIMove(gameId, aiMove);
+        
+        if (result.success) {
+            io.to(gameId).emit('move-made', {
+                move: result.move,
+                gameState: result.gameState,
+                moveHistory: game.moveHistory,
+                turn: game.chess.turn(),
+                isAIMove: true
+            });
+            
+            if (game.gameState === 'finished') {
+                const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
+                io.to(gameId).emit('game-over', endResult);
+            }
+        }
+    }
+}
+
+function getGameOverReason(chess) {
+    if (chess.isCheckmate()) return 'checkmate';
+    if (chess.isStalemate()) return 'stalemate';
+    if (chess.isThreefoldRepetition()) return 'repetition';
+    if (chess.isInsufficientMaterial()) return 'insufficient-material';
+    return 'draw';
+}
+
+// WebSocket
 io.on('connection', (socket) => {
     console.log(`🔌 Nouvelle connexion: ${socket.id}`);
 
+    // Ping pour maintenir la connexion
+    socket.on('ping', () => {
+        socket.emit('pong');
+    });
+
     socket.on('join-game', (data) => {
         const { gameId, playerName } = data;
-        console.log(`👤 ${playerName} (${socket.id}) rejoint la partie ${gameId}`);
+        console.log(`👤 ${playerName} rejoint la partie ${gameId}`);
         
         const result = gameManager.joinGame(socket.id, gameId, { 
             name: playerName,
@@ -84,12 +129,6 @@ io.on('connection', (socket) => {
         const { color, game } = result;
         socket.join(gameId);
 
-        console.log(`✅ ${playerName} assigné comme ${color} dans ${gameId}`);
-        
-        // Vérifier les joueurs connectés
-        const room = io.sockets.adapter.rooms.get(gameId);
-        console.log(`📊 Joueurs dans ${gameId}:`, room ? room.size : 0);
-
         if (color === 'white' || color === 'black') {
             socket.emit('player-assigned', { 
                 color: color, 
@@ -97,7 +136,6 @@ io.on('connection', (socket) => {
             });
 
             if (color === 'black' && game.gameState === 'playing') {
-                console.log(`🚀 Démarrage de la partie ${gameId}`);
                 io.to(gameId).emit('game-start', {
                     white: game.players.white.name,
                     black: game.players.black.name,
@@ -118,40 +156,85 @@ io.on('connection', (socket) => {
         socket.emit('move-history', game.moveHistory);
     });
 
+    socket.on('join-ai-game', (data) => {
+        const { gameId, playerName, aiDifficulty } = data;
+        console.log(`🤖 ${playerName} démarre une partie IA niveau ${aiDifficulty}`);
+        
+        const result = gameManager.createAIGame(socket.id, gameId, {
+            name: playerName,
+            rating: data.rating || 1200
+        }, aiDifficulty);
+
+        const { color, game } = result;
+        socket.join(gameId);
+
+        socket.emit('player-assigned', { 
+            color: color, 
+            gameState: game.chess.fen()
+        });
+
+        socket.emit('ai-game-start', {
+            player: playerName,
+            aiLevel: aiDifficulty,
+            gameState: game.chess.fen()
+        });
+
+        socket.emit('move-history', game.moveHistory);
+
+        // L'IA ne joue jamais en premier, le joueur a toujours les blancs
+    });
+
     socket.on('make-move', (data) => {
         const { gameId, move } = data;
-        console.log(`🎯 Coup de ${socket.id}: ${move.from}→${move.to} dans ${gameId}`);
-        
         const result = gameManager.makeMove(socket.id, gameId, move);
 
         if (result.success) {
-            console.log(`✅ Coup validé: ${result.move.san}`);
-            
-            // Envoyer immédiatement à tous
-            const moveData = {
+            io.to(gameId).emit('move-made', {
                 move: result.move,
                 gameState: result.gameState,
                 moveHistory: gameManager.getGame(gameId).moveHistory,
                 turn: gameManager.getGame(gameId).chess.turn()
-            };
-            
-            console.log(`📤 Envoi du coup à tous les joueurs de ${gameId}`);
-            io.to(gameId).emit('move-made', moveData);
-            
-            // Vérifier qui a reçu
-            const room = io.sockets.adapter.rooms.get(gameId);
-            if (room) {
-                console.log(`📨 Coup envoyé à ${room.size} joueurs`);
-            }
+            });
 
             const game = gameManager.getGame(gameId);
             if (game && game.gameState === 'finished') {
                 const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
                 io.to(gameId).emit('game-over', endResult);
+            } else if (game && game.isAIGame && game.chess.turn() === 'b') {
+                // C'est le tour de l'IA
+                setTimeout(() => {
+                    makeAIMove(gameId);
+                }, Math.random() * 1000 + 500);
             }
         } else {
-            console.log(`❌ Coup invalide: ${result.error}`);
             socket.emit('invalid-move', result.error);
+        }
+    });
+
+    socket.on('new-game', (data) => {
+        const { gameId } = data;
+        const game = gameManager.getGame(gameId);
+        
+        if (game) {
+            gameManager.games.delete(gameId);
+            const newGame = gameManager.createGame(gameId);
+            
+            if (game.players.white) {
+                newGame.players.white = game.players.white;
+            }
+            if (game.players.black) {
+                newGame.players.black = game.players.black;
+            }
+            
+            if (newGame.players.white && newGame.players.black) {
+                newGame.gameState = 'playing';
+                newGame.startTime = new Date();
+            }
+            
+            io.to(gameId).emit('game-reset', {
+                gameState: newGame.chess.fen(),
+                moveHistory: []
+            });
         }
     });
 
@@ -161,34 +244,19 @@ io.on('connection', (socket) => {
         const result = gameManager.removePlayer(socket.id);
         if (result) {
             const { gameId } = result;
-            console.log(`👋 Joueur retiré de ${gameId}`);
             socket.to(gameId).emit('player-disconnected', {
                 message: 'Un joueur s\'est déconnecté'
             });
         }
     });
-
-    // Ping pour maintenir la connexion
-    socket.on('ping', () => {
-        socket.emit('pong');
-    });
 });
-
-// Fonctions utilitaires
-function getGameOverReason(chess) {
-    if (chess.isCheckmate()) return 'checkmate';
-    if (chess.isStalemate()) return 'stalemate';
-    if (chess.isThreefoldRepetition()) return 'repetition';
-    if (chess.isInsufficientMaterial()) return 'insufficient-material';
-    return 'draw';
-}
 
 // Nettoyage périodique
 setInterval(() => {
     gameManager.cleanupOldGames();
 }, 60 * 60 * 1000);
 
-// Démarrage du serveur - UNE SEULE DÉCLARATION DE PORT
+// Démarrage du serveur
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🏁 Serveur d'échecs démarré sur le port ${PORT}`);

@@ -215,12 +215,82 @@
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             text-align: center;
-            max-width: 400px;
+            max-width: 500px;
         }
 
         .join-form h1 {
             margin-bottom: 20px;
             color: #333;
+        }
+
+        .game-mode-selection {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .mode-btn.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .mode-btn:hover:not(.active) {
+            border-color: #007bff;
+        }
+
+        .ai-difficulty {
+            margin: 15px 0;
+            text-align: left;
+        }
+
+        .ai-difficulty label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .difficulty-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .btn-difficulty {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-difficulty.active {
+            background: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+
+        .btn-difficulty:hover:not(.active) {
+            border-color: #28a745;
+        }
+
+        #difficultyInfo {
+            color: #666;
+            font-style: italic;
         }
 
         .join-form input {
@@ -269,9 +339,40 @@
     <!-- Formulaire de connexion -->
     <div id="joinForm" class="join-form">
         <h1>🏁 Échecs Multijoueur</h1>
-        <input type="text" id="playerName" placeholder="Votre nom" maxlength="20">
-        <input type="text" id="gameId" placeholder="ID de la partie (ou laissez vide)" maxlength="10">
-        <button class="btn btn-primary" onclick="joinGame()">Rejoindre la partie</button>
+        
+        <!-- Sélection du mode de jeu -->
+        <div class="game-mode-selection">
+            <button class="btn btn-primary mode-btn active" onclick="selectGameMode('multiplayer')">
+                👥 Contre un ami
+            </button>
+            <button class="btn btn-secondary mode-btn" onclick="selectGameMode('ai')">
+                🤖 Contre l'IA
+            </button>
+        </div>
+
+        <!-- Configuration multijoueur -->
+        <div id="multiplayerConfig">
+            <input type="text" id="playerName" placeholder="Votre nom" maxlength="20">
+            <input type="text" id="gameId" placeholder="ID de la partie (ou laissez vide)" maxlength="10">
+        </div>
+
+        <!-- Configuration IA -->
+        <div id="aiConfig" class="hidden">
+            <input type="text" id="playerNameAI" placeholder="Votre nom" maxlength="20">
+            <div class="ai-difficulty">
+                <label>Niveau de l'IA :</label>
+                <div class="difficulty-buttons">
+                    <button class="btn-difficulty" data-level="1">1️⃣ Débutant</button>
+                    <button class="btn-difficulty" data-level="2">2️⃣ Facile</button>
+                    <button class="btn-difficulty active" data-level="3">3️⃣ Moyen</button>
+                    <button class="btn-difficulty" data-level="4">4️⃣ Difficile</button>
+                    <button class="btn-difficulty" data-level="5">5️⃣ Expert</button>
+                </div>
+                <small id="difficultyInfo">Temps de réflexion: ~0.5s</small>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="startGame()">Commencer la partie</button>
     </div>
 
     <!-- Interface de jeu -->
@@ -320,12 +421,97 @@
         let currentGameState = null;
         let moveHistory = [];
         let isReconnecting = false;
+        let gameMode = 'multiplayer';
+        let aiDifficulty = 3;
 
         // Pièces d'échecs Unicode
         const pieces = {
             'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
             'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
         };
+
+        // Sélectionner le mode de jeu
+        function selectGameMode(mode) {
+            gameMode = mode;
+            
+            // Mettre à jour les boutons
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Afficher/masquer les configurations
+            if (mode === 'multiplayer') {
+                document.getElementById('multiplayerConfig').classList.remove('hidden');
+                document.getElementById('aiConfig').classList.add('hidden');
+            } else {
+                document.getElementById('multiplayerConfig').classList.add('hidden');
+                document.getElementById('aiConfig').classList.remove('hidden');
+            }
+        }
+
+        // Démarrer la partie
+        function startGame() {
+            if (gameMode === 'multiplayer') {
+                joinGame();
+            } else {
+                startAIGame();
+            }
+        }
+
+        // Rejoindre une partie multijoueur
+        function joinGame() {
+            const playerName = document.getElementById('playerName').value.trim();
+            if (!playerName) {
+                alert('Veuillez entrer votre nom');
+                return;
+            }
+
+            gameId = document.getElementById('gameId').value.trim() || generateGameId();
+            document.getElementById('currentGameId').textContent = gameId;
+
+            localStorage.setItem('chess_gameId', gameId);
+            localStorage.setItem('chess_playerName', playerName);
+            localStorage.setItem('chess_gameMode', 'multiplayer');
+
+            initSocket();
+            socket.emit('join-game', { gameId, playerName });
+
+            document.getElementById('joinForm').classList.add('hidden');
+            document.getElementById('gameInterface').classList.remove('hidden');
+        }
+
+        // Démarrer une partie contre l'IA
+        function startAIGame() {
+            const playerName = document.getElementById('playerNameAI').value.trim();
+            if (!playerName) {
+                alert('Veuillez entrer votre nom');
+                return;
+            }
+
+            gameId = 'ai_' + generateGameId();
+            document.getElementById('currentGameId').textContent = gameId + ' (vs IA)';
+
+            localStorage.setItem('chess_gameId', gameId);
+            localStorage.setItem('chess_playerName', playerName);
+            localStorage.setItem('chess_gameMode', 'ai');
+            localStorage.setItem('chess_aiDifficulty', aiDifficulty);
+
+            initSocket();
+            socket.emit('join-ai-game', { 
+                gameId, 
+                playerName, 
+                aiDifficulty 
+            });
+
+            document.getElementById('joinForm').classList.add('hidden');
+            document.getElementById('gameInterface').classList.remove('hidden');
+        }
+
+        // Générer un ID de partie aléatoire
+        function generateGameId() {
+            return Math.random().toString(36).substr(2, 6).toUpperCase();
+        }
 
         // Initialiser la connexion
         function initSocket() {
@@ -336,7 +522,7 @@
                 if (socket.connected) {
                     socket.emit('ping');
                 }
-            }, 25000); // Ping toutes les 25 secondes
+            }, 25000);
 
             socket.on('pong', () => {
                 console.log('🏓 Connexion active');
@@ -353,7 +539,6 @@
 
             socket.on('reconnect', () => {
                 console.log('🔄 Reconnecté au serveur');
-                // Rejoindre automatiquement la partie
                 if (gameId && localStorage.getItem('chess_playerName')) {
                     socket.emit('join-game', { 
                         gameId, 
@@ -365,7 +550,7 @@
             socket.on('player-assigned', (data) => {
                 playerColor = data.color;
                 currentGameState = data.gameState;
-                createBoard(); // Créer l'échiquier avec la bonne orientation
+                createBoard();
                 updateBoard();
                 updateGameStatus(`Vous jouez les ${playerColor === 'white' ? 'Blancs' : 'Noirs'}`);
             });
@@ -375,26 +560,40 @@
                 document.getElementById('blackPlayerName').textContent = data.black;
                 currentGameState = data.gameState;
                 if (!document.getElementById('chessBoard').hasChildNodes()) {
-                    createBoard(); // Créer l'échiquier si pas encore fait
+                    createBoard();
                 }
                 updateBoard();
                 updateGameStatus('La partie commence !');
                 updatePlayerTurn();
             });
 
+            socket.on('ai-game-start', (data) => {
+                document.getElementById('whitePlayerName').textContent = data.player;
+                document.getElementById('blackPlayerName').textContent = `🤖 IA Niveau ${data.aiLevel}`;
+                currentGameState = data.gameState;
+                if (!document.getElementById('chessBoard').hasChildNodes()) {
+                    createBoard();
+                }
+                updateBoard();
+                updateGameStatus('Partie contre IA commencée ! Vous jouez les Blancs');
+                updatePlayerTurn();
+            });
+
             socket.on('move-made', (data) => {
-                console.log('📨 Coup reçu du serveur:', data.move.san);
+                const moveText = data.isAIMove ? `🤖 IA joue: ${data.move.san}` : `📨 Coup reçu: ${data.move.san}`;
+                console.log(moveText);
                 
-                // Mettre à jour avec l'état officiel du serveur
                 currentGameState = data.gameState;
                 moveHistory = data.moveHistory;
                 
-                updateBoard(); // Mise à jour avec l'état réel
+                updateBoard();
                 updateMoveHistory();
                 updatePlayerTurn();
                 clearSelection();
                 
-                console.log('✅ Interface mise à jour côté', playerColor);
+                if (data.isAIMove) {
+                    updateGameStatus('🤖 IA a joué - À votre tour !');
+                }
             });
 
             socket.on('move-history', (data) => {
@@ -409,11 +608,8 @@
 
             socket.on('invalid-move', (message) => {
                 console.log('❌ Coup invalide:', message);
-                
-                // Restaurer l'échiquier à l'état correct
                 updateBoard();
                 clearSelection();
-                
                 alert(message);
             });
 
@@ -445,39 +641,11 @@
             });
         }
 
-        // Rejoindre une partie
-        function joinGame() {
-            const playerName = document.getElementById('playerName').value.trim();
-            if (!playerName) {
-                alert('Veuillez entrer votre nom');
-                return;
-            }
-
-            gameId = document.getElementById('gameId').value.trim() || generateGameId();
-            document.getElementById('currentGameId').textContent = gameId;
-
-            // Sauvegarder dans localStorage pour la reconnexion
-            localStorage.setItem('chess_gameId', gameId);
-            localStorage.setItem('chess_playerName', playerName);
-
-            initSocket();
-            socket.emit('join-game', { gameId, playerName });
-
-            document.getElementById('joinForm').classList.add('hidden');
-            document.getElementById('gameInterface').classList.remove('hidden');
-        }
-
-        // Générer un ID de partie aléatoire
-        function generateGameId() {
-            return Math.random().toString(36).substr(2, 6).toUpperCase();
-        }
-
-        // Créer l'échiquier (avec orientation selon la couleur)
+        // Créer l'échiquier
         function createBoard() {
             const board = document.getElementById('chessBoard');
             board.innerHTML = '';
 
-            // Orientation selon la couleur du joueur
             const isBlackPlayer = playerColor === 'black';
             
             for (let rank = (isBlackPlayer ? 1 : 8); isBlackPlayer ? rank <= 8 : rank >= 1; isBlackPlayer ? rank++ : rank--) {
@@ -512,13 +680,9 @@
                     
                     const piece = board[8 - rank][file];
                     
-                    // Mettre à jour le contenu de la case
                     square.textContent = piece ? pieces[piece] : '';
-                    
-                    // Réinitialiser les classes
                     square.className = `square ${(rank + file) % 2 === 0 ? 'dark' : 'light'}`;
                     
-                    // Marquer le dernier coup
                     if (moveHistory.length > 0) {
                         const lastMove = moveHistory[moveHistory.length - 1];
                         if (squareId === lastMove.from || squareId === lastMove.to) {
@@ -554,7 +718,6 @@
         // Gérer les clics sur l'échiquier
         function handleSquareClick(squareId) {
             if (!selectedSquare) {
-                // Sélectionner une case
                 const square = document.getElementById(squareId);
                 if (square.textContent) {
                     selectedSquare = squareId;
@@ -562,7 +725,6 @@
                     highlightPossibleMoves(squareId);
                 }
             } else {
-                // Tenter un coup
                 if (selectedSquare !== squareId) {
                     makeMove(selectedSquare, squareId);
                 }
@@ -578,16 +740,13 @@
                 selectedSquare = null;
             }
             
-            // Supprimer tous les surbrillances
             document.querySelectorAll('.square.highlight').forEach(sq => {
                 sq.classList.remove('highlight');
             });
         }
 
-        // Surligner les coups possibles (amélioration)
+        // Surligner les coups possibles
         function highlightPossibleMoves(from) {
-            // Ne pas surligner toutes les cases, seulement la case sélectionnée
-            // Cette fonction sera améliorée plus tard avec la vraie logique des échecs
             console.log('Pièce sélectionnée:', from);
         }
 
@@ -595,7 +754,6 @@
         function makeMove(from, to) {
             console.log('🎯 Tentative de coup:', from, 'vers', to);
             
-            // Mise à jour immédiate côté client (optimiste)
             updateBoardOptimistic(from, to);
             
             socket.emit('make-move', {
@@ -604,17 +762,15 @@
             });
         }
         
-        // Mise à jour optimiste (avant confirmation serveur)
+        // Mise à jour optimiste
         function updateBoardOptimistic(from, to) {
             const fromSquare = document.getElementById(from);
             const toSquare = document.getElementById(to);
             
             if (fromSquare && toSquare) {
-                // Déplacer visuellement la pièce
                 toSquare.textContent = fromSquare.textContent;
                 fromSquare.textContent = '';
                 
-                // Marquer le coup
                 document.querySelectorAll('.last-move').forEach(sq => sq.classList.remove('last-move'));
                 fromSquare.classList.add('last-move');
                 toSquare.classList.add('last-move');
@@ -642,7 +798,6 @@
                 historyList.appendChild(moveItem);
             }
 
-            // Faire défiler vers le bas
             historyList.scrollTop = historyList.scrollHeight;
         }
 
@@ -654,7 +809,7 @@
         // Mettre à jour le tour du joueur
         function updatePlayerTurn() {
             const fen = currentGameState;
-            const turn = fen.split(' ')[1]; // 'w' ou 'b'
+            const turn = fen.split(' ')[1];
             
             const whitePlayer = document.getElementById('whitePlayer');
             const blackPlayer = document.getElementById('blackPlayer');
@@ -693,6 +848,30 @@
             }
         }
 
+        // Gestion des boutons de difficulté
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.btn-difficulty').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    document.querySelectorAll('.btn-difficulty').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    aiDifficulty = parseInt(btn.dataset.level);
+                    
+                    const difficultyInfo = {
+                        1: "Temps de réflexion: ~0.1s (Très facile)",
+                        2: "Temps de réflexion: ~0.2s (Facile)", 
+                        3: "Temps de réflexion: ~0.5s (Moyen)",
+                        4: "Temps de réflexion: ~2s (Difficile)",
+                        5: "Temps de réflexion: ~5s (Expert)"
+                    };
+                    
+                    document.getElementById('difficultyInfo').textContent = difficultyInfo[aiDifficulty];
+                });
+            });
+        });
+
         // Gérer les paramètres d'URL et reconnexion automatique
         window.addEventListener('load', () => {
             const urlPath = window.location.pathname;
@@ -701,7 +880,6 @@
                 document.getElementById('gameId').value = match[1];
             }
 
-            // Reconnexion automatique
             const savedGameId = localStorage.getItem('chess_gameId');
             const savedPlayerName = localStorage.getItem('chess_playerName');
             
@@ -709,7 +887,6 @@
                 document.getElementById('gameId').value = savedGameId;
                 document.getElementById('playerName').value = savedPlayerName;
                 
-                // Proposer la reconnexion
                 if (confirm(`Reconnecter à la partie ${savedGameId} en tant que ${savedPlayerName} ?`)) {
                     isReconnecting = true;
                     joinGame();
