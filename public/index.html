@@ -3,121 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Échecs en Ligne</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <title>Échecs Multijoueur</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
+            padding: 20px;
         }
 
         .game-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            padding: 30px;
+            display: flex;
+            gap: 20px;
             max-width: 1200px;
             width: 100%;
-            display: flex;
-            gap: 30px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
-        .game-left {
+        .chess-board-container {
+            padding: 20px;
             flex: 1;
         }
 
-        .game-right {
-            width: 300px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .game-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .game-header h1 {
-            color: #333;
-            margin: 0 0 20px 0;
-            font-size: 2.5em;
-        }
-
         .game-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding: 15px;
             background: #f8f9fa;
-            border-radius: 10px;
+            padding: 20px;
+            width: 300px;
+            border-left: 1px solid #dee2e6;
         }
 
-        .player-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .player-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid #333;
-        }
-
-        .player-color.white {
-            background: white;
-        }
-
-        .player-color.black {
-            background: black;
-        }
-
-        .current-turn {
-            font-weight: bold;
-            color: #2c3e50;
-        }
-
-        .chessboard {
-            width: 480px;
-            height: 480px;
-            border: 3px solid #8b4513;
-            border-radius: 10px;
+        .chess-board {
+            width: 400px;
+            height: 400px;
             margin: 0 auto;
+            border: 3px solid #8b4513;
+            border-radius: 8px;
             display: grid;
             grid-template-columns: repeat(8, 1fr);
             grid-template-rows: repeat(8, 1fr);
-            gap: 0;
-            overflow: hidden;
-            transition: transform 0.5s ease;
-        }
-
-        .chessboard.flipped {
-            transform: rotate(180deg);
-        }
-
-        .chessboard.flipped .square {
-            transform: rotate(180deg);
         }
 
         .square {
-            width: 60px;
-            height: 60px;
+            width: 50px;
+            height: 50px;
             display: flex;
-            justify-content: center;
             align-items: center;
-            font-size: 36px;
+            justify-content: center;
+            font-size: 32px;
             cursor: pointer;
-            transition: all 0.2s ease;
             position: relative;
+            transition: all 0.2s ease;
         }
 
         .square.light {
@@ -128,130 +75,69 @@
             background-color: #b58863;
         }
 
-        .square:hover {
-            opacity: 0.8;
-            transform: scale(1.05);
-        }
-
         .square.selected {
-            background-color: #7fb069 !important;
-            box-shadow: inset 0 0 0 3px #4caf50;
+            background-color: #ffff99 !important;
+            box-shadow: inset 0 0 0 3px #ff6b6b;
         }
 
-        .square.valid-move {
-            background-color: #90caf9 !important;
+        .square.highlight {
+            background-color: #90EE90 !important;
         }
 
         .square.last-move {
             background-color: #ffeb3b !important;
         }
 
-        .piece {
-            user-select: none;
-            cursor: pointer;
-            transition: transform 0.1s ease;
+        .square:hover {
+            opacity: 0.8;
         }
 
-        .piece:hover {
-            transform: scale(1.1);
-        }
-
-        .status-message {
+        .game-status {
             text-align: center;
-            margin-top: 20px;
+            margin-bottom: 20px;
             padding: 15px;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 1.1em;
-        }
-
-        .status-waiting {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-
-        .status-active {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .connection-form {
-            margin-bottom: 30px;
-            text-align: center;
-        }
-
-        .connection-form input {
-            padding: 10px 15px;
-            margin: 5px;
-            border: 2px solid #ddd;
+            background: #e3f2fd;
             border-radius: 8px;
-            font-size: 16px;
+            border-left: 4px solid #2196f3;
         }
 
-        .connection-form button {
-            padding: 10px 20px;
-            background: #4caf50;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s ease;
+        .game-status h2 {
+            color: #1976d2;
+            margin-bottom: 5px;
         }
 
-        .connection-form button:hover {
-            background: #45a049;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .coordinates {
-            position: absolute;
-            font-size: 12px;
-            font-weight: bold;
-            color: #666;
-            pointer-events: none;
-        }
-
-        .coord-file {
-            bottom: 2px;
-            right: 2px;
-        }
-
-        .coord-rank {
-            top: 2px;
-            left: 2px;
-        }
-
-        /* Historique des coups */
-        .moves-history {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            height: 400px;
+        .player-info {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 10px;
         }
 
-        .moves-history h3 {
-            margin: 0 0 15px 0;
-            color: #333;
-            font-size: 1.2em;
+        .player {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
             text-align: center;
         }
 
-        .moves-list {
-            flex: 1;
+        .player.white {
+            background: #fff;
+            border: 2px solid #ddd;
+        }
+
+        .player.black {
+            background: #333;
+            color: white;
+            border: 2px solid #555;
+        }
+
+        .player.active {
+            border-color: #4caf50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+        }
+
+        .move-history {
+            max-height: 300px;
             overflow-y: auto;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -259,745 +145,576 @@
             background: white;
         }
 
-        .move-pair {
+        .move-history h3 {
+            margin-bottom: 10px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .move-item {
             display: flex;
-            margin-bottom: 8px;
-            font-family: 'Courier New', monospace;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .move-item:last-child {
+            border-bottom: none;
         }
 
         .move-number {
-            width: 30px;
             font-weight: bold;
             color: #666;
         }
 
-        .move-item {
-            flex: 1;
-            padding: 4px 8px;
-            margin: 0 2px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s;
+        .move-notation {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
         }
 
-        .move-item:hover {
-            background-color: #e3f2fd;
-        }
-
-        .move-item.current {
-            background-color: #4caf50;
-            color: white;
-        }
-
-        .move-item.viewing {
-            background-color: #ff9800;
-            color: white;
-        }
-
-        .history-controls {
+        .controls {
+            margin-top: 20px;
             display: flex;
+            flex-direction: column;
             gap: 10px;
-            margin-top: 15px;
         }
 
-        .history-btn {
-            flex: 1;
-            padding: 8px 12px;
+        .btn {
+            padding: 10px 15px;
             border: none;
-            border-radius: 6px;
-            font-size: 14px;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.2s;
+            font-size: 14px;
+            transition: all 0.2s ease;
         }
 
-        .history-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .history-btn.nav {
-            background: #2196f3;
+        .btn-primary {
+            background: #007bff;
             color: white;
         }
 
-        .history-btn.nav:hover:not(:disabled) {
-            background: #1976d2;
+        .btn-primary:hover {
+            background: #0056b3;
         }
 
-        .history-btn.return {
-            background: #4caf50;
+        .btn-secondary {
+            background: #6c757d;
             color: white;
         }
 
-        .history-btn.return:hover:not(:disabled) {
-            background: #45a049;
+        .btn-secondary:hover {
+            background: #545b62;
         }
 
-        .viewing-indicator {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-            padding: 10px;
-            border-radius: 8px;
+        .join-form {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             text-align: center;
-            font-weight: bold;
+            max-width: 400px;
+        }
+
+        .join-form h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .join-form input {
+            width: 100%;
+            padding: 12px;
             margin-bottom: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .join-form input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+            }
+            
+            .game-info {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #dee2e6;
+            }
+            
+            .chess-board {
+                width: 320px;
+                height: 320px;
+            }
+            
+            .square {
+                width: 40px;
+                height: 40px;
+                font-size: 24px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="game-container">
-        <div class="game-header">
-            <h1>♔ Échecs en Ligne ♛</h1>
-            
-            <div id="connectionForm" class="connection-form">
-                <input type="text" id="gameIdInput" placeholder="ID de la partie (ex: partie1)" value="partie1">
-                <input type="text" id="playerIdInput" placeholder="Votre nom" value="">
-                <button onclick="joinGame()">Rejoindre la partie</button>
+    <!-- Formulaire de connexion -->
+    <div id="joinForm" class="join-form">
+        <h1>🏁 Échecs Multijoueur</h1>
+        <input type="text" id="playerName" placeholder="Votre nom" maxlength="20">
+        <input type="text" id="gameId" placeholder="ID de la partie (ou laissez vide)" maxlength="10">
+        <button class="btn btn-primary" onclick="joinGame()">Rejoindre la partie</button>
+    </div>
+
+    <!-- Interface de jeu -->
+    <div id="gameInterface" class="game-container hidden">
+        <div class="chess-board-container">
+            <div class="game-status" id="gameStatus">
+                <h2>En attente d'un adversaire...</h2>
+                <p>Partagez l'ID de partie : <strong id="currentGameId"></strong></p>
             </div>
+            
+            <div class="player-info">
+                <div class="player white" id="whitePlayer">
+                    <strong>Blancs</strong>
+                    <div id="whitePlayerName">En attente...</div>
+                </div>
+                <div class="player black" id="blackPlayer">
+                    <strong>Noirs</strong>
+                    <div id="blackPlayerName">En attente...</div>
+                </div>
+            </div>
+
+            <div class="chess-board" id="chessBoard"></div>
         </div>
 
-        <div id="gameArea" class="hidden">
-            <div class="game-left">
-                <div class="game-info">
-                    <div class="player-info">
-                        <div id="playerColor" class="player-color"></div>
-                        <span id="playerName">Vous</span>
-                    </div>
-                    <div class="current-turn" id="currentTurn">En attente...</div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <div id="opponentInfo">En attente d'un adversaire...</div>
-                        <button class="history-btn nav" onclick="chessClient.flipBoard()" title="Retourner l'échiquier">🔄</button>
-                    </div>
-                </div>
-
-                <div id="viewingIndicator" class="viewing-indicator hidden">
-                    📖 Mode consultation - Position du coup <span id="viewingMove"></span>
-                </div>
-
-                <div class="chessboard" id="chessboard"></div>
-
-                <div id="statusMessage" class="status-message status-waiting">
-                    En attente d'un autre joueur...
-                </div>
+        <div class="game-info">
+            <div class="move-history">
+                <h3>📜 Historique des coups</h3>
+                <div id="moveHistoryList"></div>
             </div>
 
-            <div class="game-right">
-                <div class="moves-history">
-                    <h3>📜 Historique des coups</h3>
-                    <div class="moves-list" id="movesList">
-                        <div style="text-align: center; color: #666; font-style: italic; margin-top: 20px;">
-                            Aucun coup joué pour le moment
-                        </div>
-                    </div>
-                    <div class="history-controls">
-                        <button class="history-btn nav" id="prevMoveBtn" onclick="chessClient.navigateHistory(-1)" disabled>← Précédent</button>
-                        <button class="history-btn nav" id="nextMoveBtn" onclick="chessClient.navigateHistory(1)" disabled>Suivant →</button>
-                        <button class="history-btn return" id="returnToGameBtn" onclick="chessClient.returnToCurrentGame()" disabled>🔄 Actuel</button>
-                    </div>
-                </div>
+            <div class="controls">
+                <button class="btn btn-primary" onclick="newGame()">Nouvelle partie</button>
+                <button class="btn btn-secondary" onclick="copyGameLink()">Copier lien</button>
+                <button class="btn btn-secondary" onclick="leaveGame()">Quitter</button>
             </div>
         </div>
     </div>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script>
-        class ChessClient {
-            constructor() {
-                this.socket = null;
-                this.gameId = null;
-                this.playerId = null;
-                this.playerColor = null;
-                this.board = null;
-                this.selectedSquare = null;
-                this.validMoves = [];
-                this.currentPlayer = 'white';
-                this.gameStatus = 'waiting';
-                this.lastMove = null;
-                this.opponentName = null;
-                this.players = [];
-                
-                // Historique des coups
-                this.moveHistory = [];
-                this.currentMoveIndex = -1;
-                this.viewingHistoryIndex = -1;
-                this.isViewingHistory = false;
-                
-                this.pieceSymbols = {
-                    'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
-                    'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
-                };
-                
-                this.initializeBoard();
-            }
+        // Variables globales
+        let socket;
+        let gameId;
+        let playerColor;
+        let selectedSquare = null;
+        let currentGameState = null;
+        let moveHistory = [];
+        let isReconnecting = false;
 
-            initializeBoard() {
-                const chessboard = document.getElementById('chessboard');
-                chessboard.innerHTML = '';
-                
-                for (let row = 0; row < 8; row++) {
-                    for (let col = 0; col < 8; col++) {
-                        const square = document.createElement('div');
-                        square.className = `square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
-                        square.dataset.row = row;
-                        square.dataset.col = col;
-                        
-                        // Ajouter les coordonnées (s'ajusteront selon l'orientation)
-                        this.addCoordinates(square, row, col);
-                        
-                        square.addEventListener('click', () => this.handleSquareClick(row, col));
-                        chessboard.appendChild(square);
-                    }
+        // Pièces d'échecs Unicode
+        const pieces = {
+            'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+            'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+        };
+
+        // Initialiser la connexion
+        function initSocket() {
+            socket = io();
+
+            // Système de ping pour maintenir la connexion
+            setInterval(() => {
+                if (socket.connected) {
+                    socket.emit('ping');
                 }
-            }
+            }, 25000); // Ping toutes les 25 secondes
 
-            addCoordinates(square, row, col) {
-                const chessboard = document.getElementById('chessboard');
-                const isFlipped = chessboard ? chessboard.classList.contains('flipped') : false;
-                
-                // Coordonnées des fichiers (a-h)
-                if ((isFlipped && row === 0) || (!isFlipped && row === 7)) {
-                    const fileCoord = document.createElement('div');
-                    fileCoord.className = 'coordinates coord-file';
-                    const fileChar = isFlipped ? 
-                        String.fromCharCode(104 - col) :  // h->a pour retourné
-                        String.fromCharCode(97 + col);    // a->h pour normal
-                    fileCoord.textContent = fileChar;
-                    square.appendChild(fileCoord);
-                }
-                
-                // Coordonnées des rangées (1-8)
-                if ((isFlipped && col === 7) || (!isFlipped && col === 0)) {
-                    const rankCoord = document.createElement('div');
-                    rankCoord.className = 'coordinates coord-rank';
-                    const rankNum = isFlipped ? 
-                        row + 1 :           // 1->8 pour retourné
-                        8 - row;            // 8->1 pour normal
-                    rankCoord.textContent = rankNum;
-                    square.appendChild(rankCoord);
-                }
-            }
+            socket.on('pong', () => {
+                console.log('🏓 Connexion active');
+            });
 
-            updateBoardOrientation() {
-                const chessboard = document.getElementById('chessboard');
-                
-                if (this.playerColor === 'black') {
-                    chessboard.classList.add('flipped');
-                } else {
-                    chessboard.classList.remove('flipped');
-                }
-                
-                // Remettre à jour les coordonnées
-                this.updateCoordinates();
-            }
+            socket.on('connect', () => {
+                console.log('🔌 Connecté au serveur');
+            });
 
-            updateCoordinates() {
-                // Supprimer toutes les coordonnées existantes
-                document.querySelectorAll('.coordinates').forEach(coord => coord.remove());
-                
-                // Re-ajouter les coordonnées avec la bonne orientation
-                const squares = document.querySelectorAll('.square');
-                squares.forEach(square => {
-                    const row = parseInt(square.dataset.row);
-                    const col = parseInt(square.dataset.col);
-                    this.addCoordinates(square, row, col);
-                });
-            }
+            socket.on('disconnect', (reason) => {
+                console.log('❌ Déconnecté:', reason);
+                updateGameStatus('⚠️ Connexion perdue... Reconnexion...');
+            });
 
-            connect(gameId, playerId) {
-                this.gameId = gameId;
-                this.playerId = playerId;
-                this.socket = io();
-                
-                this.socket.on('connect', () => {
-                    console.log('Connecté au serveur');
-                    this.socket.emit('join-game', { gameId, playerId });
-                });
-                
-                this.socket.on('player-assigned', (data) => {
-                    this.playerColor = data.color;
-                    document.getElementById('connectionForm').classList.add('hidden');
-                    document.getElementById('gameArea').classList.remove('hidden');
-                    
-                    const colorElement = document.getElementById('playerColor');
-                    colorElement.classList.add(this.playerColor);
-                    document.getElementById('playerName').textContent = `${playerId} (${this.playerColor === 'white' ? 'Blancs' : 'Noirs'})`;
-                    
-                    // Orienter l'échiquier selon la couleur du joueur
-                    this.updateBoardOrientation();
-                });
-                
-                this.socket.on('game-state', (data) => {
-                    console.log('État de jeu reçu:', data);
-                    
-                    this.board = data.board;
-                    this.currentPlayer = data.currentPlayer;
-                    this.gameStatus = data.gameStatus;
-                    this.lastMove = data.lastMove;
-                    
-                    // Mettre à jour les informations des joueurs
-                    if (data.players) {
-                        this.players = data.players;
-                        this.updateOpponentInfo();
-                    }
-                    
-                    // Synchroniser l'historique avec le serveur
-                    if (data.moves) {
-                        this.synchronizeHistory(data.moves);
-                    }
-                    
-                    // Si on était en train de consulter l'historique et qu'un nouveau coup arrive
-                    if (this.isViewingHistory && data.lastMove) {
-                        // Notifier qu'un nouveau coup a été joué
-                        this.showMessage('Nouveau coup joué ! Historique mis à jour.', 'active');
-                    }
-                    
-                    // Revenir au jeu actuel automatiquement si un nouveau coup est joué
-                    if (this.isViewingHistory && data.lastMove && 
-                        data.moves.length > this.moveHistory.length) {
-                        this.returnToCurrentGame();
-                    }
-                    
-                    this.updateDisplay();
-                });
-                
-                this.socket.on('game-full', () => {
-                    this.showMessage('La partie est complète!', 'error');
-                });
-                
-                this.socket.on('invalid-move', (data) => {
-                    console.log('Mouvement invalide:', data);
-                    this.showMessage('Mouvement invalide!', 'error');
-                    this.clearSelection();
-                });
-                
-                this.socket.on('game-not-found', () => {
-                    this.showMessage('Partie non trouvée!', 'error');
-                });
-                
-                this.socket.on('connect', () => {
-                    console.log('Connecté au serveur WebSocket');
-                });
-                
-                this.socket.on('disconnect', () => {
-                    console.log('Déconnecté du serveur WebSocket');
-                    this.showMessage('Connexion perdue, tentative de reconnexion...', 'error');
-                });
-                
-                this.socket.on('player-disconnected', () => {
-                    this.showMessage('L\'autre joueur s\'est déconnecté', 'error');
-                    this.updateOpponentInfo(); // Mettre à jour l'affichage de l'adversaire
-                });
-            }
-
-            handleSquareClick(row, col) {
-                // Ne pas permettre de jouer si on consulte l'historique
-                if (this.isViewingHistory) {
-                    this.showMessage('Revenez au jeu actuel pour jouer', 'error');
-                    return;
-                }
-                
-                if (this.gameStatus !== 'active' || this.currentPlayer !== this.playerColor) {
-                    return;
-                }
-
-                const piece = this.board[row][col];
-                
-                if (this.selectedSquare) {
-                    const [selectedRow, selectedCol] = this.selectedSquare;
-                    
-                    if (row === selectedRow && col === selectedCol) {
-                        // Désélectionner la case
-                        this.clearSelection();
-                        return;
-                    }
-                    
-                    // Tenter de faire un mouvement
-                    console.log('Envoi du mouvement:', {
-                        gameId: this.gameId,
-                        from: [selectedRow, selectedCol],
-                        to: [row, col],
-                        playerId: this.playerId
+            socket.on('reconnect', () => {
+                console.log('🔄 Reconnecté au serveur');
+                // Rejoindre automatiquement la partie
+                if (gameId && localStorage.getItem('chess_playerName')) {
+                    socket.emit('join-game', { 
+                        gameId, 
+                        playerName: localStorage.getItem('chess_playerName')
                     });
+                }
+            });
+
+            socket.on('player-assigned', (data) => {
+                playerColor = data.color;
+                currentGameState = data.gameState;
+                createBoard(); // Créer l'échiquier avec la bonne orientation
+                updateBoard();
+                updateGameStatus(`Vous jouez les ${playerColor === 'white' ? 'Blancs' : 'Noirs'}`);
+            });
+
+            socket.on('game-start', (data) => {
+                document.getElementById('whitePlayerName').textContent = data.white;
+                document.getElementById('blackPlayerName').textContent = data.black;
+                currentGameState = data.gameState;
+                if (!document.getElementById('chessBoard').hasChildNodes()) {
+                    createBoard(); // Créer l'échiquier si pas encore fait
+                }
+                updateBoard();
+                updateGameStatus('La partie commence !');
+                updatePlayerTurn();
+            });
+
+            socket.on('move-made', (data) => {
+                console.log('📨 Coup reçu du serveur:', data.move.san);
+                
+                // Mettre à jour avec l'état officiel du serveur
+                currentGameState = data.gameState;
+                moveHistory = data.moveHistory;
+                
+                updateBoard(); // Mise à jour avec l'état réel
+                updateMoveHistory();
+                updatePlayerTurn();
+                clearSelection();
+                
+                console.log('✅ Interface mise à jour côté', playerColor);
+            });
+
+            socket.on('move-history', (data) => {
+                moveHistory = data;
+                updateMoveHistory();
+            });
+
+            socket.on('game-over', (data) => {
+                updateGameStatus(`🏁 ${data.result}`);
+                clearSelection();
+            });
+
+            socket.on('invalid-move', (message) => {
+                console.log('❌ Coup invalide:', message);
+                
+                // Restaurer l'échiquier à l'état correct
+                updateBoard();
+                clearSelection();
+                
+                alert(message);
+            });
+
+            socket.on('player-disconnected', () => {
+                updateGameStatus('⚠️ Un joueur s\'est déconnecté');
+            });
+
+            socket.on('spectator-mode', (data) => {
+                currentGameState = data.gameState;
+                moveHistory = data.moveHistory;
+                updateBoard();
+                updateMoveHistory();
+                updateGameStatus('👀 Mode spectateur');
+                if (data.players.white) {
+                    document.getElementById('whitePlayerName').textContent = data.players.white;
+                }
+                if (data.players.black) {
+                    document.getElementById('blackPlayerName').textContent = data.players.black;
+                }
+            });
+
+            socket.on('game-reset', (data) => {
+                currentGameState = data.gameState;
+                moveHistory = data.moveHistory;
+                updateBoard();
+                updateMoveHistory();
+                updateGameStatus('Nouvelle partie commencée !');
+                clearSelection();
+            });
+        }
+
+        // Rejoindre une partie
+        function joinGame() {
+            const playerName = document.getElementById('playerName').value.trim();
+            if (!playerName) {
+                alert('Veuillez entrer votre nom');
+                return;
+            }
+
+            gameId = document.getElementById('gameId').value.trim() || generateGameId();
+            document.getElementById('currentGameId').textContent = gameId;
+
+            // Sauvegarder dans localStorage pour la reconnexion
+            localStorage.setItem('chess_gameId', gameId);
+            localStorage.setItem('chess_playerName', playerName);
+
+            initSocket();
+            socket.emit('join-game', { gameId, playerName });
+
+            document.getElementById('joinForm').classList.add('hidden');
+            document.getElementById('gameInterface').classList.remove('hidden');
+        }
+
+        // Générer un ID de partie aléatoire
+        function generateGameId() {
+            return Math.random().toString(36).substr(2, 6).toUpperCase();
+        }
+
+        // Créer l'échiquier (avec orientation selon la couleur)
+        function createBoard() {
+            const board = document.getElementById('chessBoard');
+            board.innerHTML = '';
+
+            // Orientation selon la couleur du joueur
+            const isBlackPlayer = playerColor === 'black';
+            
+            for (let rank = (isBlackPlayer ? 1 : 8); isBlackPlayer ? rank <= 8 : rank >= 1; isBlackPlayer ? rank++ : rank--) {
+                for (let file = (isBlackPlayer ? 7 : 0); isBlackPlayer ? file >= 0 : file < 8; isBlackPlayer ? file-- : file++) {
+                    const square = document.createElement('div');
+                    const squareId = String.fromCharCode(97 + file) + rank;
                     
-                    this.socket.emit('make-move', {
-                        gameId: this.gameId,
-                        from: [selectedRow, selectedCol],
-                        to: [row, col],
-                        playerId: this.playerId
-                    });
+                    square.id = squareId;
+                    square.className = `square ${(rank + file) % 2 === 0 ? 'dark' : 'light'}`;
+                    square.addEventListener('click', () => handleSquareClick(squareId));
                     
-                    this.clearSelection();
-                } else if (piece && this.isPieceOwnedByPlayer(piece)) {
-                    // Sélectionner une pièce
-                    this.selectedSquare = [row, col];
-                    this.updateDisplay();
+                    board.appendChild(square);
                 }
             }
+            updateBoard();
+        }
 
-            isPieceOwnedByPlayer(piece) {
-                const isWhitePiece = piece === piece.toUpperCase();
-                return (this.playerColor === 'white' && isWhitePiece) || 
-                       (this.playerColor === 'black' && !isWhitePiece);
+        // Mettre à jour l'échiquier
+        function updateBoard() {
+            if (!currentGameState) {
+                console.log('⚠️ Pas d\'état de jeu disponible');
+                return;
             }
 
-            updateDisplay() {
-                this.renderBoard();
-                this.updateGameInfo();
-                this.updateOpponentInfo();
-                this.updateStatusMessage();
-                this.updateHistoryDisplay();
-                this.updateHistoryControls();
-            }
-
-            renderBoard() {
-                const squares = document.querySelectorAll('.square');
-                
-                squares.forEach((square, index) => {
-                    const row = Math.floor(index / 8);
-                    const col = index % 8;
-                    const piece = this.board[row][col];
+            const board = fenToBoard(currentGameState);
+            
+            for (let rank = 8; rank >= 1; rank--) {
+                for (let file = 0; file < 8; file++) {
+                    const squareId = String.fromCharCode(97 + file) + rank;
+                    const square = document.getElementById(squareId);
+                    if (!square) continue;
                     
-                    // Nettoyer les classes spéciales
-                    square.classList.remove('selected', 'valid-move', 'last-move');
+                    const piece = board[8 - rank][file];
                     
-                    // Afficher la pièce
-                    const existingPiece = square.querySelector('.piece');
-                    if (existingPiece) {
-                        existingPiece.remove();
-                    }
+                    // Mettre à jour le contenu de la case
+                    square.textContent = piece ? pieces[piece] : '';
                     
-                    if (piece) {
-                        const pieceElement = document.createElement('div');
-                        pieceElement.className = 'piece';
-                        pieceElement.textContent = this.pieceSymbols[piece];
-                        square.appendChild(pieceElement);
-                    }
+                    // Réinitialiser les classes
+                    square.className = `square ${(rank + file) % 2 === 0 ? 'dark' : 'light'}`;
                     
-                    // Marquer la case sélectionnée
-                    if (this.selectedSquare && 
-                        this.selectedSquare[0] === row && 
-                        this.selectedSquare[1] === col) {
-                        square.classList.add('selected');
-                    }
-                    
-                    // Marquer le dernier mouvement
-                    if (this.lastMove) {
-                        const [fromRow, fromCol] = this.lastMove.from;
-                        const [toRow, toCol] = this.lastMove.to;
-                        if ((row === fromRow && col === fromCol) || 
-                            (row === toRow && col === toCol)) {
+                    // Marquer le dernier coup
+                    if (moveHistory.length > 0) {
+                        const lastMove = moveHistory[moveHistory.length - 1];
+                        if (squareId === lastMove.from || squareId === lastMove.to) {
                             square.classList.add('last-move');
                         }
                     }
-                });
+                }
             }
+        }
 
-            updateGameInfo() {
-                const currentTurnElement = document.getElementById('currentTurn');
-                const isMyTurn = this.currentPlayer === this.playerColor;
-                
-                if (this.gameStatus === 'active') {
-                    if (isMyTurn) {
-                        currentTurnElement.textContent = '🎯 Votre tour';
-                        currentTurnElement.style.color = '#4caf50';
-                        currentTurnElement.style.fontWeight = 'bold';
+        // Convertir FEN en tableau 2D
+        function fenToBoard(fen) {
+            const position = fen.split(' ')[0];
+            const ranks = position.split('/');
+            const board = [];
+
+            for (const rank of ranks) {
+                const row = [];
+                for (const char of rank) {
+                    if (isNaN(char)) {
+                        row.push(char);
                     } else {
-                        const opponentColor = this.currentPlayer === 'white' ? 'Blancs' : 'Noirs';
-                        currentTurnElement.textContent = `⏳ Tour des ${opponentColor}`;
-                        currentTurnElement.style.color = '#ff9800';
-                        currentTurnElement.style.fontWeight = 'normal';
+                        for (let i = 0; i < parseInt(char); i++) {
+                            row.push(null);
+                        }
                     }
-                } else {
-                    currentTurnElement.textContent = 'En attente...';
-                    currentTurnElement.style.color = '#666';
-                    currentTurnElement.style.fontWeight = 'normal';
                 }
+                board.push(row);
             }
+            return board;
+        }
 
-            updateOpponentInfo() {
-                const opponentInfoElement = document.getElementById('opponentInfo');
-                
-                if (this.gameStatus === 'waiting') {
-                    opponentInfoElement.textContent = '⏳ En attente d\'un adversaire...';
-                    opponentInfoElement.style.color = '#ff9800';
-                } else if (this.players.length >= 2) {
-                    // Trouver l'adversaire
-                    const opponent = this.players.find(p => p.id !== this.playerId);
-                    if (opponent) {
-                        const opponentColorEmoji = opponent.color === 'white' ? '⚪' : '⚫';
-                        opponentInfoElement.textContent = `${opponentColorEmoji} ${opponent.id}`;
-                        opponentInfoElement.style.color = '#2c3e50';
-                    }
-                } else {
-                    opponentInfoElement.textContent = '❌ Adversaire déconnecté';
-                    opponentInfoElement.style.color = '#e74c3c';
+        // Gérer les clics sur l'échiquier
+        function handleSquareClick(squareId) {
+            if (!selectedSquare) {
+                // Sélectionner une case
+                const square = document.getElementById(squareId);
+                if (square.textContent) {
+                    selectedSquare = squareId;
+                    square.classList.add('selected');
+                    highlightPossibleMoves(squareId);
                 }
-            }
-
-            updateStatusMessage() {
-                const statusElement = document.getElementById('statusMessage');
-                
-                switch (this.gameStatus) {
-                    case 'waiting':
-                        statusElement.textContent = 'En attente d\'un autre joueur...';
-                        statusElement.className = 'status-message status-waiting';
-                        break;
-                    case 'active':
-                        const isMyTurn = this.currentPlayer === this.playerColor;
-                        statusElement.textContent = isMyTurn ? 'C\'est à votre tour de jouer!' : 'En attente du mouvement adverse...';
-                        statusElement.className = 'status-message status-active';
-                        break;
-                    case 'finished':
-                        statusElement.textContent = 'Partie terminée';
-                        statusElement.className = 'status-message status-error';
-                        break;
+            } else {
+                // Tenter un coup
+                if (selectedSquare !== squareId) {
+                    makeMove(selectedSquare, squareId);
                 }
-            }
-
-            clearSelection() {
-                this.selectedSquare = null;
-                this.validMoves = [];
-                this.updateDisplay();
-            }
-
-            showMessage(message, type) {
-                const statusElement = document.getElementById('statusMessage');
-                statusElement.textContent = message;
-                statusElement.className = `status-message status-${type}`;
-                
-                setTimeout(() => {
-                    this.updateStatusMessage();
-                }, 3000);
-            }
-
-            // === MÉTHODES POUR L'HISTORIQUE ===
-            
-            synchronizeHistory(serverMoves) {
-                // Reconstruire l'historique depuis les données du serveur
-                this.moveHistory = [];
-                
-                if (serverMoves && serverMoves.length > 0) {
-                    let currentBoard = this.getInitialBoard();
-                    
-                    serverMoves.forEach((move, index) => {
-                        // Appliquer le mouvement sur le plateau
-                        const [fromRow, fromCol] = move.from;
-                        const [toRow, toCol] = move.to;
-                        
-                        currentBoard[toRow][toCol] = currentBoard[fromRow][fromCol];
-                        currentBoard[fromRow][fromCol] = null;
-                        
-                        // Ajouter à l'historique
-                        const notation = this.getMoveNotation(move);
-                        const historyMove = {
-                            ...move,
-                            notation,
-                            boardAfter: this.cloneBoard(currentBoard)
-                        };
-                        
-                        this.moveHistory.push(historyMove);
-                    });
-                    
-                    this.currentMoveIndex = this.moveHistory.length - 1;
-                }
-                
-                console.log('Historique synchronisé:', this.moveHistory.length, 'coups');
-            }
-            
-            addMoveToHistory(move) {
-                const notation = this.getMoveNotation(move);
-                const historyMove = {
-                    ...move,
-                    notation,
-                    boardAfter: this.cloneBoard(this.board)
-                };
-                
-                this.moveHistory.push(historyMove);
-                this.currentMoveIndex = this.moveHistory.length - 1;
-            }
-
-            getMoveNotation(move) {
-                const { from, to, piece, capturedPiece } = move;
-                const [fromRow, fromCol] = from;
-                const [toRow, toCol] = to;
-                
-                const fromSquare = String.fromCharCode(97 + fromCol) + (8 - fromRow);
-                const toSquare = String.fromCharCode(97 + toCol) + (8 - toRow);
-                
-                const pieceSymbol = piece.toUpperCase() === 'P' ? '' : piece.toUpperCase();
-                const captureSymbol = capturedPiece ? 'x' : '';
-                
-                return `${pieceSymbol}${captureSymbol}${toSquare}`;
-            }
-
-            cloneBoard(board) {
-                return board.map(row => [...row]);
-            }
-
-            navigateHistory(direction) {
-                const newIndex = this.viewingHistoryIndex + direction;
-                
-                if (newIndex < -1 || newIndex >= this.moveHistory.length) {
-                    return;
-                }
-                
-                this.viewingHistoryIndex = newIndex;
-                this.isViewingHistory = newIndex >= 0;
-                
-                if (this.isViewingHistory) {
-                    // Afficher la position après le coup sélectionné
-                    this.board = this.cloneBoard(this.moveHistory[newIndex].boardAfter);
-                } else {
-                    // Revenir à la position initiale
-                    this.board = this.getInitialBoard();
-                }
-                
-                this.clearSelection();
-                this.updateDisplay();
-            }
-
-            returnToCurrentGame() {
-                this.isViewingHistory = false;
-                this.viewingHistoryIndex = -1;
-                
-                // Demander l'état actuel du jeu au serveur
-                if (this.socket && this.gameId) {
-                    this.socket.emit('request-game-state', { gameId: this.gameId });
-                }
-                
-                this.clearSelection();
-                this.updateDisplay();
-            }
-
-            getInitialBoard() {
-                return [
-                    ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-                    ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-                    [null, null, null, null, null, null, null, null],
-                    [null, null, null, null, null, null, null, null],
-                    [null, null, null, null, null, null, null, null],
-                    [null, null, null, null, null, null, null, null],
-                    ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-                    ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-                ];
-            }
-
-            updateHistoryDisplay() {
-                const movesList = document.getElementById('movesList');
-                
-                if (this.moveHistory.length === 0) {
-                    movesList.innerHTML = '<div style="text-align: center; color: #666; font-style: italic; margin-top: 20px;">Aucun coup joué pour le moment</div>';
-                    return;
-                }
-                
-                let html = '';
-                for (let i = 0; i < this.moveHistory.length; i += 2) {
-                    const moveNumber = Math.floor(i / 2) + 1;
-                    const whiteMove = this.moveHistory[i];
-                    const blackMove = this.moveHistory[i + 1];
-                    
-                    html += '<div class="move-pair">';
-                    html += `<div class="move-number">${moveNumber}.</div>`;
-                    
-                    // Coup des blancs
-                    const whiteClass = this.getMoveClass(i);
-                    html += `<div class="move-item ${whiteClass}" onclick="chessClient.jumpToMove(${i})">${whiteMove.notation}</div>`;
-                    
-                    // Coup des noirs (s'il existe)
-                    if (blackMove) {
-                        const blackClass = this.getMoveClass(i + 1);
-                        html += `<div class="move-item ${blackClass}" onclick="chessClient.jumpToMove(${i + 1})">${blackMove.notation}</div>`;
-                    }
-                    
-                    html += '</div>';
-                }
-                
-                movesList.innerHTML = html;
-                
-                // Faire défiler vers le bas pour voir le dernier coup
-                movesList.scrollTop = movesList.scrollHeight;
-            }
-
-            getMoveClass(moveIndex) {
-                if (this.isViewingHistory && moveIndex === this.viewingHistoryIndex) {
-                    return 'viewing';
-                } else if (!this.isViewingHistory && moveIndex === this.currentMoveIndex) {
-                    return 'current';
-                }
-                return '';
-            }
-
-            jumpToMove(moveIndex) {
-                this.viewingHistoryIndex = moveIndex;
-                this.isViewingHistory = true;
-                this.board = this.cloneBoard(this.moveHistory[moveIndex].boardAfter);
-                this.clearSelection();
-                this.updateDisplay();
-            }
-
-            updateHistoryControls() {
-                const prevBtn = document.getElementById('prevMoveBtn');
-                const nextBtn = document.getElementById('nextMoveBtn');
-                const returnBtn = document.getElementById('returnToGameBtn');
-                const viewingIndicator = document.getElementById('viewingIndicator');
-                const viewingMove = document.getElementById('viewingMove');
-                
-                // Activer/désactiver les boutons
-                prevBtn.disabled = this.viewingHistoryIndex <= -1;
-                nextBtn.disabled = this.viewingHistoryIndex >= this.moveHistory.length - 1;
-                returnBtn.disabled = !this.isViewingHistory;
-                
-                // Afficher/masquer l'indicateur de consultation
-                if (this.isViewingHistory) {
-                    viewingIndicator.classList.remove('hidden');
-                    viewingMove.textContent = this.viewingHistoryIndex + 1;
-                } else {
-                    viewingIndicator.classList.add('hidden');
-                }
-            }
-
-            // Fonction pour retourner l'échiquier manuellement
-            flipBoard() {
-                const chessboard = document.getElementById('chessboard');
-                const isCurrentlyFlipped = chessboard.classList.contains('flipped');
-                
-                if (isCurrentlyFlipped) {
-                    chessboard.classList.remove('flipped');
-                } else {
-                    chessboard.classList.add('flipped');
-                }
-                
-                // Mettre à jour les coordonnées selon la nouvelle orientation
-                this.updateCoordinates();
+                clearSelection();
             }
         }
 
-        let chessClient;
-
-        function joinGame() {
-            const gameId = document.getElementById('gameIdInput').value.trim();
-            const playerId = document.getElementById('playerIdInput').value.trim();
-            
-            if (!gameId || !playerId) {
-                alert('Veuillez entrer un ID de partie et votre nom');
-                return;
+        // Effacer la sélection
+        function clearSelection() {
+            if (selectedSquare) {
+                const square = document.getElementById(selectedSquare);
+                square.classList.remove('selected');
+                selectedSquare = null;
             }
             
-            chessClient = new ChessClient();
-            chessClient.connect(gameId, playerId);
+            // Supprimer tous les surbrillances
+            document.querySelectorAll('.square.highlight').forEach(sq => {
+                sq.classList.remove('highlight');
+            });
         }
 
-        // Générer un nom de joueur aléatoire
-        function generateRandomName() {
-            const adjectives = ['Rapide', 'Sage', 'Brave', 'Rusé', 'Noble'];
-            const nouns = ['Cavalier', 'Roi', 'Dame', 'Tour', 'Fou'];
-            return adjectives[Math.floor(Math.random() * adjectives.length)] + 
-                   nouns[Math.floor(Math.random() * nouns.length)];
+        // Surligner les coups possibles (amélioration)
+        function highlightPossibleMoves(from) {
+            // Ne pas surligner toutes les cases, seulement la case sélectionnée
+            // Cette fonction sera améliorée plus tard avec la vraie logique des échecs
+            console.log('Pièce sélectionnée:', from);
         }
 
-        // Initialiser avec un nom aléatoire
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('playerIdInput').value = generateRandomName();
+        // Effectuer un coup
+        function makeMove(from, to) {
+            console.log('🎯 Tentative de coup:', from, 'vers', to);
+            
+            // Mise à jour immédiate côté client (optimiste)
+            updateBoardOptimistic(from, to);
+            
+            socket.emit('make-move', {
+                gameId: gameId,
+                move: { from, to }
+            });
+        }
+        
+        // Mise à jour optimiste (avant confirmation serveur)
+        function updateBoardOptimistic(from, to) {
+            const fromSquare = document.getElementById(from);
+            const toSquare = document.getElementById(to);
+            
+            if (fromSquare && toSquare) {
+                // Déplacer visuellement la pièce
+                toSquare.textContent = fromSquare.textContent;
+                fromSquare.textContent = '';
+                
+                // Marquer le coup
+                document.querySelectorAll('.last-move').forEach(sq => sq.classList.remove('last-move'));
+                fromSquare.classList.add('last-move');
+                toSquare.classList.add('last-move');
+            }
+        }
+
+        // Mettre à jour l'historique des coups
+        function updateMoveHistory() {
+            const historyList = document.getElementById('moveHistoryList');
+            historyList.innerHTML = '';
+
+            for (let i = 0; i < moveHistory.length; i++) {
+                const move = moveHistory[i];
+                const moveItem = document.createElement('div');
+                moveItem.className = 'move-item';
+                
+                const moveNumber = Math.floor(i / 2) + 1;
+                const isWhiteMove = i % 2 === 0;
+                
+                moveItem.innerHTML = `
+                    <span class="move-number">${moveNumber}${isWhiteMove ? '.' : '...'}</span>
+                    <span class="move-notation">${move.move}</span>
+                `;
+                
+                historyList.appendChild(moveItem);
+            }
+
+            // Faire défiler vers le bas
+            historyList.scrollTop = historyList.scrollHeight;
+        }
+
+        // Mettre à jour le statut du jeu
+        function updateGameStatus(message) {
+            document.getElementById('gameStatus').innerHTML = `<h2>${message}</h2>`;
+        }
+
+        // Mettre à jour le tour du joueur
+        function updatePlayerTurn() {
+            const fen = currentGameState;
+            const turn = fen.split(' ')[1]; // 'w' ou 'b'
+            
+            const whitePlayer = document.getElementById('whitePlayer');
+            const blackPlayer = document.getElementById('blackPlayer');
+            
+            whitePlayer.classList.remove('active');
+            blackPlayer.classList.remove('active');
+            
+            if (turn === 'w') {
+                whitePlayer.classList.add('active');
+                updateGameStatus('Au tour des Blancs');
+            } else {
+                blackPlayer.classList.add('active');
+                updateGameStatus('Au tour des Noirs');
+            }
+        }
+
+        // Nouvelle partie
+        function newGame() {
+            if (confirm('Êtes-vous sûr de vouloir commencer une nouvelle partie ?')) {
+                socket.emit('new-game', gameId);
+            }
+        }
+
+        // Copier le lien de la partie
+        function copyGameLink() {
+            const link = `${window.location.origin}/game/${gameId}`;
+            navigator.clipboard.writeText(link).then(() => {
+                alert('Lien copié dans le presse-papiers !');
+            });
+        }
+
+        // Quitter la partie
+        function leaveGame() {
+            if (confirm('Êtes-vous sûr de vouloir quitter la partie ?')) {
+                location.reload();
+            }
+        }
+
+        // Gérer les paramètres d'URL et reconnexion automatique
+        window.addEventListener('load', () => {
+            const urlPath = window.location.pathname;
+            const match = urlPath.match(/\/game\/(.+)/);
+            if (match) {
+                document.getElementById('gameId').value = match[1];
+            }
+
+            // Reconnexion automatique
+            const savedGameId = localStorage.getItem('chess_gameId');
+            const savedPlayerName = localStorage.getItem('chess_playerName');
+            
+            if (savedGameId && savedPlayerName) {
+                document.getElementById('gameId').value = savedGameId;
+                document.getElementById('playerName').value = savedPlayerName;
+                
+                // Proposer la reconnexion
+                if (confirm(`Reconnecter à la partie ${savedGameId} en tant que ${savedPlayerName} ?`)) {
+                    isReconnecting = true;
+                    joinGame();
+                }
+            }
         });
     </script>
 </body>

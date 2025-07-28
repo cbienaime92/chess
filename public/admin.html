@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - Échecs Multijoueur</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .games-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .games-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        .games-table th,
+        .games-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .games-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .status-waiting {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-playing {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-finished {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .refresh-indicator {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .analysis-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .server-info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .game-details {
+            display: none;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .expandable-row {
+            cursor: pointer;
+        }
+
+        .expandable-row:hover {
+            background: #f8f9fa;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .analysis-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .games-table {
+                font-size: 0.9em;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏁 Administration - Serveur d'Échecs</h1>
+        <p>Surveillance et gestion des parties en temps réel</p>
+    </div>
+
+    <div class="container">
+        <div class="server-info">
+            <strong>ℹ️ Informations du serveur</strong><br>
+            Démarré le: <span id="serverStartTime">-</span> | 
+            Uptime: <span id="serverUptime">-</span> | 
+            Dernière mise à jour: <span id="lastUpdate">-</span>
+            <span id="refreshIndicator" class="refresh-indicator" style="display: none;"></span>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalGames">0</div>
+                <div class="stat-label">Parties totales</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="activeGames">0</div>
+                <div class="stat-label">Parties en cours</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalPlayers">0</div>
+                <div class="stat-label">Joueurs connectés</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="totalSpectators">0</div>
+                <div class="stat-label">Spectateurs</div>
+            </div>
+        </div>
+
+        <div class="games-section">
+            <div class="section-title">🎮 Parties en cours</div>
+            
+            <div class="controls">
+                <button class="btn btn-primary" onclick="refreshData()">
+                    🔄 Actualiser
+                </button>
+                <button class="btn btn-danger" onclick="clearFinishedGames()">
+                    🗑️ Nettoyer parties terminées
+                </button>
+                <label>
+                    <input type="checkbox" id="autoRefresh" checked> 
+                    Actualisation automatique (5s)
+                </label>
+            </div>
+
+            <table class="games-table">
+                <thead>
+                    <tr>
+                        <th>ID Partie</th>
+                        <th>Joueurs</th>
+                        <th>Statut</th>
+                        <th>Coups</th>
+                        <th>Durée</th>
+                        <th>Spectateurs</th>
+                        <th>Type</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="gamesTableBody">
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 40px;">
+                            Chargement des données...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="analysis-section">
+            <div class="chart-container">
+                <h3>📊 Statistiques des parties</h3>
+                <canvas id="gamesChart" width="400" height="200"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>⏱️ Activité en temps réel</h3>
+                <div id="activityLog"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let serverStartTime = new Date();
+        let refreshInterval;
+        let activityLog = [];
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('serverStartTime').textContent = serverStartTime.toLocaleString();
+            updateUptime();
+            refreshData();
+            setupAutoRefresh();
+            
+            // Mettre à jour l'uptime toutes les secondes
+            setInterval(updateUptime, 1000);
+        });
+
+        function updateUptime() {
+            const now = new Date();
+            const uptime = now - serverStartTime;
+            const hours = Math.floor(uptime / (1000 * 60 * 60));
+            const minutes = Math.floor((uptime % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((uptime % (1000 * 60)) / 1000);
+            
+            document.getElementById('serverUptime').textContent = 
+                `${hours}h ${minutes}m ${seconds}s`;
+        }
+
+        function setupAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            
+            function toggleAutoRefresh() {
+                if (checkbox.checked) {
+                    refreshInterval = setInterval(refreshData, 5000);
+                } else {
+                    clearInterval(refreshInterval);
+                }
+            }
+            
+            checkbox.addEventListener('change', toggleAutoRefresh);
+            toggleAutoRefresh(); // Démarrer l'actualisation automatique
+        }
+
+        async function refreshData() {
+            const indicator = document.getElementById('refreshIndicator');
+            indicator.style.display = 'inline-block';
+            
+            try {
+                const response = await fetch('/api/games');
+                const games = await response.json();
+                
+                updateStats(games);
+                updateGamesTable(games);
+                updateChart(games);
+                
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+                addToActivityLog(`Données actualisées - ${games.length} parties`);
+                
+            } catch (error) {
+                console.error('Erreur lors de l\'actualisation:', error);
+                addToActivityLog('Erreur lors de l\'actualisation', 'error');
+            } finally {
+                indicator.style.display = 'none';
+            }
+        }
+
+        function updateStats(games) {
+            const activeGames = games.filter(g => g.gameState === 'playing').length;
+            const totalPlayers = games.reduce((sum, g) => {
+                return sum + (g.players.white ? 1 : 0) + (g.players.black ? 1 : 0);
+            }, 0);
+            const totalSpectators = games.reduce((sum, g) => sum + g.spectatorCount, 0);
+
+            document.getElementById('totalGames').textContent = games.length;
+            document.getElementById('activeGames').textContent = activeGames;
+            document.getElementById('totalPlayers').textContent = totalPlayers;
+            document.getElementById('totalSpectators').textContent = totalSpectators;
+        }
+
+        function updateGamesTable(games) {
+            const tbody = document.getElementById('gamesTableBody');
+            
+            if (games.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 40px;">
+                            Aucune partie en cours
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = games.map(game => {
+                const duration = game.startTime ? 
+                    formatDuration(new Date() - new Date(game.startTime)) : '-';
+                
+                const whitePlayer = game.players.white?.name || 'En attente...';
+                const blackPlayer = game.players.black?.name || 'En attente...';
+                
+                return `
+                    <tr class="expandable-row" onclick="toggleGameDetails('${game.id}')">
+                        <td><strong>${game.id}</strong></td>
+                        <td>
+                            <div>⚪ ${whitePlayer}</div>
+                            <div>⚫ ${blackPlayer}</div>
+                        </td>
+                        <td>
+                            <span class="status-badge status-${game.gameState}">
+                                ${getStatusText(game.gameState)}
+                            </span>
+                        </td>
+                        <td>${game.moveCount}</td>
+                        <td>${duration}</td>
+                        <td>${game.spectatorCount}</td>
+                        <td>${game.gameType}</td>
+                        <td>
+                            <button class="btn btn-primary" onclick="viewGame('${game.id}')" style="font-size: 12px; padding: 5px 10px;">
+                                👁️ Voir
+                            </button>
+                        </td>
+                    </tr>
+                    <tr id="details-${game.id}" class="game-details">
+                        <td colspan="8">
+                            <div id="details-content-${game.id}">
+                                Chargement des détails...
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function getStatusText(status) {
+            const statusMap = {
+                'waiting': 'En attente',
+                'playing': 'En cours',
+                'finished': 'Terminée'
+            };
+            return statusMap[status] || status;
+        }
+
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        }
+
+        async function toggleGameDetails(gameId) {
+            const detailsRow = document.getElementById(`details-${gameId}`);
+            const detailsContent = document.getElementById(`details-content-${gameId}`);
+            
+            if (detailsRow.style.display === 'table-row') {
+                detailsRow.style.display = 'none';
+                return;
+            }
+            
+            detailsRow.style.display = 'table-row';
+            
+            try {
+                const response = await fetch(`/api/game/${gameId}/analysis`);
+                const analysis = await response.json();
+                
+                detailsContent.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                        <div>
+                            <h4>📊 Statistiques</h4>
+                            <p>Coups: ${analysis.statistics?.moves || 0}</p>
+                            <p>Captures: ${analysis.statistics?.captures || 0}</p>
+                            <p>Échecs: ${analysis.statistics?.checks || 0}</p>
+                            <p>Roques: ${analysis.statistics?.castles || 0}</p>
+                        </div>
+                        <div>
+                            <h4>🕐 Temps</h4>
+                            <p>Durée: ${analysis.duration ? formatDuration(analysis.duration * 1000) : 'En cours'}</p>
+                            <p>Temps moyen/coup: ${analysis.statistics?.averageMoveTime ? analysis.statistics.averageMoveTime.toFixed(1) + 's' : '-'}</p>
+                            <p>Plus longue réflexion: ${analysis.statistics?.longestThink ? analysis.statistics.longestThink.toFixed(1) + 's' : '-'}</p>
+                        </div>
+                        <div>
+                            <h4>🎯 Ouverture</h4>
+                            <p>${analysis.openingName || 'Inconnue'}</p>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                detailsContent.innerHTML = '<p>Erreur lors du chargement des détails</p>';
+            }
+        }
+
+        function viewGame(gameId) {
+            window.open(`/game/${gameId}`, '_blank');
+        }
+
+        function clearFinishedGames() {
+            if (confirm('Êtes-vous sûr de vouloir supprimer toutes les parties terminées ?')) {
+                addToActivityLog('Nettoyage des parties terminées demandé');
+                // Cette fonctionnalité nécessiterait un endpoint API supplémentaire
+                alert('Fonctionnalité à implémenter côté serveur');
+            }
+        }
+
+        function updateChart(games) {
+            // Ici on pourrait intégrer Chart.js pour de vrais graphiques
+            // Pour l'instant, un résumé simple
+            const canvas = document.getElementById('gamesChart');
+            const ctx = canvas.getContext('2d');
+            
+            // Nettoyer le canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Données pour le graphique
+            const statusCounts = {
+                waiting: games.filter(g => g.gameState === 'waiting').length,
+                playing: games.filter(g => g.gameState === 'playing').length,
+                finished: games.filter(g => g.gameState === 'finished').length
+            };
+            
+            // Graphique en barres simple
+            const maxCount = Math.max(...Object.values(statusCounts), 1);
+            const barWidth = canvas.width / 4;
+            const barMaxHeight = canvas.height - 40;
+            
+            // Dessiner les barres
+            Object.entries(statusCounts).forEach(([status, count], index) => {
+                const barHeight = (count / maxCount) * barMaxHeight;
+                const x = (index + 0.5) * barWidth;
+                const y = canvas.height - barHeight - 20;
+                
+                // Couleur selon le statut
+                const colors = {
+                    waiting: '#ffc107',
+                    playing: '#28a745',
+                    finished: '#dc3545'
+                };
+                
+                ctx.fillStyle = colors[status];
+                ctx.fillRect(x - 30, y, 60, barHeight);
+                
+                // Label
+                ctx.fillStyle = '#333';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(status, x, canvas.height - 5);
+                ctx.fillText(count.toString(), x, y - 5);
+            });
+        }
+
+        function addToActivityLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            activityLog.unshift({ timestamp, message, type });
+            
+            // Garder seulement les 20 dernières entrées
+            if (activityLog.length > 20) {
+                activityLog = activityLog.slice(0, 20);
+            }
+            
+            updateActivityDisplay();
+        }
+
+        function updateActivityDisplay() {
+            const logContainer = document.getElementById('activityLog');
+            
+            logContainer.innerHTML = activityLog.map(entry => `
+                <div style="padding: 5px; border-bottom: 1px solid #eee; font-size: 0.9em;">
+                    <span style="color: #666;">${entry.timestamp}</span> - 
+                    <span style="color: ${entry.type === 'error' ? '#dc3545' : '#28a745'};">
+                        ${entry.message}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // Gestion des erreurs globales
+        window.addEventListener('error', (event) => {
+            addToActivityLog(`Erreur JavaScript: ${event.message}`, 'error');
+        });
+    </script>
+</body>
+</html>

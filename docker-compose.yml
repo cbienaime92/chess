@@ -1,45 +1,14 @@
 version: '3.8'
 
 services:
-  chess-app:
+  chess-server:
     build: .
-    container_name: chess-game-server
+    container_name: chess-multiplayer
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
+    volumes:
+      - ./logs:/app/logs
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "node", "healthcheck.js"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    dns:
-      - 8.8.8.8
-    networks:
-      - chess-network
-
-networks:
-  chess-network:
-    driver: bridge
-
-# Configuration alternative pour développement
-# Décommentez cette section si vous voulez monter le code en volume pour le dev
-#
-# services:
-#   chess-app-dev:
-#     build: .
-#     container_name: chess-game-dev
-#     ports:
-#       - "3000:3000"
-#     environment:
-#       - NODE_ENV=development
-#       - PORT=3000
-#     volumes:
-#       - .:/usr/src/app
-#       - /usr/src/app/node_modules
-#     command: npm run dev
-#     networks:
-#       - chess-network

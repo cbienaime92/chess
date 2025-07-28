@@ -1,285 +1,197 @@
-// server.js - Serveur d'échecs avec WebSocket
+// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const path = require('path');
+const cors = require('cors');
+const GameManager = require('./game-manager');
+const ChessEngine = require('./chess-engine');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
-// Servir les fichiers statiques
+// Middleware
+app.use(cors());
+app.use(express.json());
 app.use(express.static('public'));
 
-// État du jeu
-const games = new Map();
+// Gestionnaire de parties
+const gameManager = new GameManager();
 
-class ChessGame {
-    constructor(gameId) {
-        this.gameId = gameId;
-        this.players = [];
-        this.currentPlayer = 'white';
-        this.board = this.initializeBoard();
-        this.gameStatus = 'waiting'; // waiting, active, finished
-        this.moves = [];
+// API REST
+app.get('/api/games', (req, res) => {
+    const games = gameManager.getAllGames();
+    res.json(games);
+});
+
+app.get('/api/game/:gameId/analysis', (req, res) => {
+    const analysis = gameManager.getGameAnalysis(req.params.gameId);
+    if (analysis) {
+        res.json(analysis);
+    } else {
+        res.status(404).json({ error: 'Partie non trouvée' });
     }
+});
 
-    initializeBoard() {
-        return [
-            ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
-            ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            [null, null, null, null, null, null, null, null],
-            ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
-            ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R']
-        ];
+app.post('/api/analyze-position', (req, res) => {
+    const { fen } = req.body;
+    if (!fen) {
+        return res.status(400).json({ error: 'FEN requis' });
     }
-
-    addPlayer(playerId, socketId) {
-        if (this.players.length < 2) {
-            const color = this.players.length === 0 ? 'white' : 'black';
-            this.players.push({ id: playerId, socketId, color });
-
-            if (this.players.length === 2) {
-                this.gameStatus = 'active';
-            }
-
-            return color;
-        }
-        return null;
+    
+    const engine = new ChessEngine();
+    if (engine.loadFen(fen)) {
+        const analysis = engine.analyzePosition();
+        const suggestions = engine.getSuggestions(5);
+        res.json({ analysis, suggestions });
+    } else {
+        res.status(400).json({ error: 'FEN invalide' });
     }
+});
 
-    isValidMove(from, to, color) {
-        const [fromRow, fromCol] = from;
-        const [toRow, toCol] = to;
+// Routes
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-        // Vérifications de base
-        if (fromRow < 0 || fromRow > 7 || fromCol < 0 || fromCol > 7) return false;
-        if (toRow < 0 || toRow > 7 || toCol < 0 || toCol > 7) return false;
+app.get('/game/:gameId', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-        const piece = this.board[fromRow][fromCol];
-        if (!piece) return false;
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
 
-        // Vérifier que c'est bien le tour du joueur
-        const isWhitePiece = piece === piece.toUpperCase();
-        if ((color === 'white' && !isWhitePiece) || (color === 'black' && isWhitePiece)) {
-            return false;
-        }
-
-        const targetPiece = this.board[toRow][toCol];
-
-        // Ne peut pas capturer ses propres pièces
-        if (targetPiece) {
-            const isTargetWhite = targetPiece === targetPiece.toUpperCase();
-            if ((isWhitePiece && isTargetWhite) || (!isWhitePiece && !isTargetWhite)) {
-                return false;
-            }
-        }
-
-        // Validation basique des mouvements par type de pièce
-        const pieceType = piece.toLowerCase();
-        const rowDiff = Math.abs(toRow - fromRow);
-        const colDiff = Math.abs(toCol - fromCol);
-
-        switch (pieceType) {
-            case 'p': // Pion
-                const direction = isWhitePiece ? -1 : 1;
-                const startRow = isWhitePiece ? 6 : 1;
-
-                if (fromCol === toCol) { // Mouvement vertical
-                    if (targetPiece) return false; // Blocage
-                    if (toRow === fromRow + direction) return true;
-                    if (fromRow === startRow && toRow === fromRow + 2 * direction && !this.board[fromRow + direction][fromCol]) {
-                        return true;
-                    }
-                } else if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
-                    return targetPiece !== null; // Capture en diagonale
-                }
-                return false;
-
-            case 'r': // Tour
-                if (fromRow !== toRow && fromCol !== toCol) return false;
-                return this.isPathClear(from, to);
-
-            case 'n': // Cavalier
-                return (rowDiff === 2 && colDiff === 1) || (rowDiff === 1 && colDiff === 2);
-
-            case 'b': // Fou
-                if (rowDiff !== colDiff) return false;
-                return this.isPathClear(from, to);
-
-            case 'q': // Dame
-                if (fromRow !== toRow && fromCol !== toCol && rowDiff !== colDiff) return false;
-                return this.isPathClear(from, to);
-
-            case 'k': // Roi
-                return rowDiff <= 1 && colDiff <= 1;
-
-            default:
-                return false;
-        }
-    }
-
-    isPathClear(from, to) {
-        const [fromRow, fromCol] = from;
-        const [toRow, toCol] = to;
-
-        const rowStep = toRow > fromRow ? 1 : toRow < fromRow ? -1 : 0;
-        const colStep = toCol > fromCol ? 1 : toCol < fromCol ? -1 : 0;
-
-        let currentRow = fromRow + rowStep;
-        let currentCol = fromCol + colStep;
-
-        while (currentRow !== toRow || currentCol !== toCol) {
-            if (this.board[currentRow][currentCol] !== null) {
-                return false;
-            }
-            currentRow += rowStep;
-            currentCol += colStep;
-        }
-
-        return true;
-    }
-
-    makeMove(from, to, playerId) {
-        const player = this.players.find(p => p.id === playerId);
-        if (!player || player.color !== this.currentPlayer) {
-            return false;
-        }
-
-        if (!this.isValidMove(from, to, player.color)) {
-            return false;
-        }
-
-        const [fromRow, fromCol] = from;
-        const [toRow, toCol] = to;
-
-        // Effectuer le mouvement
-        const piece = this.board[fromRow][fromCol];
-        const capturedPiece = this.board[toRow][toCol];
-
-        this.board[toRow][toCol] = piece;
-        this.board[fromRow][fromCol] = null;
-
-        // Enregistrer le mouvement avec plus d'informations
-        const move = {
-            from,
-            to,
-            piece,
-            capturedPiece,
-            player: player.color,
-            moveNumber: this.moves.length + 1
-        };
-
-        this.moves.push(move);
-
-        // Changer de joueur
-        this.currentPlayer = this.currentPlayer === 'white' ? 'black' : 'white';
-
-        return move; // Retourner l'objet move complet
-    }
-}
-
-// Gestion des connexions WebSocket
+// WebSocket avec debug détaillé
 io.on('connection', (socket) => {
-    console.log('Nouvelle connexion:', socket.id);
+    console.log(`🔌 Nouvelle connexion: ${socket.id}`);
 
     socket.on('join-game', (data) => {
-        const { gameId, playerId } = data;
+        const { gameId, playerName } = data;
+        console.log(`👤 ${playerName} (${socket.id}) rejoint la partie ${gameId}`);
+        
+        const result = gameManager.joinGame(socket.id, gameId, { 
+            name: playerName,
+            rating: data.rating || 1200
+        });
 
-        if (!games.has(gameId)) {
-            games.set(gameId, new ChessGame(gameId));
-        }
+        const { color, game } = result;
+        socket.join(gameId);
 
-        const game = games.get(gameId);
-        const playerColor = game.addPlayer(playerId, socket.id);
+        console.log(`✅ ${playerName} assigné comme ${color} dans ${gameId}`);
+        
+        // Vérifier les joueurs connectés
+        const room = io.sockets.adapter.rooms.get(gameId);
+        console.log(`📊 Joueurs dans ${gameId}:`, room ? room.size : 0);
 
-        if (playerColor) {
-            socket.join(gameId);
-            socket.emit('player-assigned', { color: playerColor, gameId });
-
-            // Envoyer l'état du jeu
-            io.to(gameId).emit('game-state', {
-                board: game.board,
-                currentPlayer: game.currentPlayer,
-                gameStatus: game.gameStatus,
-                players: game.players.map(p => ({ color: p.color, id: p.id })),
-                moves: game.moves
+        if (color === 'white' || color === 'black') {
+            socket.emit('player-assigned', { 
+                color: color, 
+                gameState: game.chess.fen()
             });
 
-            console.log(`Joueur ${playerId} rejoint la partie ${gameId} en tant que ${playerColor}`);
+            if (color === 'black' && game.gameState === 'playing') {
+                console.log(`🚀 Démarrage de la partie ${gameId}`);
+                io.to(gameId).emit('game-start', {
+                    white: game.players.white.name,
+                    black: game.players.black.name,
+                    gameState: game.chess.fen()
+                });
+            }
         } else {
-            socket.emit('game-full');
+            socket.emit('spectator-mode', { 
+                gameState: game.chess.fen(),
+                moveHistory: game.moveHistory,
+                players: {
+                    white: game.players.white?.name || 'En attente...',
+                    black: game.players.black?.name || 'En attente...'
+                }
+            });
         }
+
+        socket.emit('move-history', game.moveHistory);
     });
 
     socket.on('make-move', (data) => {
-        const { gameId, from, to, playerId } = data;
-        const game = games.get(gameId);
+        const { gameId, move } = data;
+        console.log(`🎯 Coup de ${socket.id}: ${move.from}→${move.to} dans ${gameId}`);
+        
+        const result = gameManager.makeMove(socket.id, gameId, move);
 
-        if (game) {
-            const moveResult = game.makeMove(from, to, playerId);
+        if (result.success) {
+            console.log(`✅ Coup validé: ${result.move.san}`);
+            
+            // Envoyer immédiatement à tous
+            const moveData = {
+                move: result.move,
+                gameState: result.gameState,
+                moveHistory: gameManager.getGame(gameId).moveHistory,
+                turn: gameManager.getGame(gameId).chess.turn()
+            };
+            
+            console.log(`📤 Envoi du coup à tous les joueurs de ${gameId}`);
+            io.to(gameId).emit('move-made', moveData);
+            
+            // Vérifier qui a reçu
+            const room = io.sockets.adapter.rooms.get(gameId);
+            if (room) {
+                console.log(`📨 Coup envoyé à ${room.size} joueurs`);
+            }
 
-            if (moveResult) {
-                // Diffuser le nouvel état du jeu à TOUS les joueurs de la partie
-                const gameState = {
-                    board: game.board,
-                    currentPlayer: game.currentPlayer,
-                    gameStatus: game.gameStatus,
-                    lastMove: moveResult,
-                    moves: game.moves
-                };
-
-                io.to(gameId).emit('game-state', gameState);
-
-                console.log(`Mouvement effectué dans la partie ${gameId}:`, from, 'vers', to, 'par', playerId);
-                console.log('État diffusé à tous les joueurs de la partie');
-            } else {
-                socket.emit('invalid-move', { reason: 'Mouvement invalide' });
-                console.log(`Mouvement invalide dans la partie ${gameId}:`, from, 'vers', to, 'par', playerId);
+            const game = gameManager.getGame(gameId);
+            if (game && game.gameState === 'finished') {
+                const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
+                io.to(gameId).emit('game-over', endResult);
             }
         } else {
-            socket.emit('game-not-found');
+            console.log(`❌ Coup invalide: ${result.error}`);
+            socket.emit('invalid-move', result.error);
         }
     });
 
-    socket.on('request-game-state', (data) => {
-        const { gameId } = data;
-        const game = games.get(gameId);
-
-        if (game) {
-            socket.emit('game-state', {
-                board: game.board,
-                currentPlayer: game.currentPlayer,
-                gameStatus: game.gameStatus,
-                lastMove: game.moves.length > 0 ? game.moves[game.moves.length - 1] : null,
-                moves: game.moves
+    socket.on('disconnect', (reason) => {
+        console.log(`❌ Déconnexion ${socket.id}: ${reason}`);
+        
+        const result = gameManager.removePlayer(socket.id);
+        if (result) {
+            const { gameId } = result;
+            console.log(`👋 Joueur retiré de ${gameId}`);
+            socket.to(gameId).emit('player-disconnected', {
+                message: 'Un joueur s\'est déconnecté'
             });
         }
     });
 
-    socket.on('disconnect', () => {
-        console.log('Déconnexion:', socket.id);
-        // Gérer la déconnexion des joueurs
-        for (const [gameId, game] of games.entries()) {
-            const playerIndex = game.players.findIndex(p => p.socketId === socket.id);
-            if (playerIndex !== -1) {
-                game.players.splice(playerIndex, 1);
-                if (game.players.length === 0) {
-                    games.delete(gameId);
-                } else {
-                    game.gameStatus = 'waiting';
-                    io.to(gameId).emit('player-disconnected');
-                }
-                break;
-            }
-        }
+    // Ping pour maintenir la connexion
+    socket.on('ping', () => {
+        socket.emit('pong');
     });
 });
 
+// Fonctions utilitaires
+function getGameOverReason(chess) {
+    if (chess.isCheckmate()) return 'checkmate';
+    if (chess.isStalemate()) return 'stalemate';
+    if (chess.isThreefoldRepetition()) return 'repetition';
+    if (chess.isInsufficientMaterial()) return 'insufficient-material';
+    return 'draw';
+}
+
+// Nettoyage périodique
+setInterval(() => {
+    gameManager.cleanupOldGames();
+}, 60 * 60 * 1000);
+
+// Démarrage du serveur - UNE SEULE DÉCLARATION DE PORT
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Serveur d'échecs démarré sur le port ${PORT}`);
+    console.log(`🏁 Serveur d'échecs démarré sur le port ${PORT}`);
+    console.log(`📊 Interface: http://localhost:${PORT}`);
+    console.log(`📊 Admin: http://localhost:${PORT}/admin`);
 });
