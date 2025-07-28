@@ -119,15 +119,26 @@ io.on('connection', (socket) => {
 
     socket.on('join-game', (data) => {
         const { gameId, playerName } = data;
-        console.log(`👤 ${playerName} rejoint la partie ${gameId}`);
+        console.log(`👤 ${playerName} tente de rejoindre ${gameId} avec socket ${socket.id}`);
+        
+        // Debug: Vérifier l'état de la partie avant jointure
+        const existingGame = gameManager.getGame(gameId);
+        if (existingGame) {
+            console.log(`🔍 État de la partie ${gameId}:`);
+            console.log(`   - État: ${existingGame.gameState}`);
+            console.log(`   - Blanc: ${existingGame.players.white?.name || 'vide'} (${existingGame.players.white?.id || 'pas d\'ID'})`);
+            console.log(`   - Noir: ${existingGame.players.black?.name || 'vide'} (${existingGame.players.black?.id || 'pas d\'ID'})`);
+        }
         
         const result = gameManager.joinGame(socket.id, gameId, { 
             name: playerName,
             rating: data.rating || 1200
         });
 
-        const { color, game } = result;
+        const { color, game, isReconnection } = result;
         socket.join(gameId);
+
+        console.log(`✅ ${playerName} assigné comme ${color} dans ${gameId} ${isReconnection ? '(RECONNEXION)' : '(NOUVEAU)'}`);
 
         if (color === 'white' || color === 'black') {
             socket.emit('player-assigned', { 
@@ -135,10 +146,21 @@ io.on('connection', (socket) => {
                 gameState: game.chess.fen()
             });
 
-            if (color === 'black' && game.gameState === 'playing') {
+            if (isReconnection) {
+                // Notifier l'autre joueur de la reconnexion
+                socket.to(gameId).emit('player-reconnected', {
+                    playerName: playerName,
+                    color: color,
+                    message: `${playerName} s'est reconnecté`
+                });
+                
+                console.log(`📢 Notification de reconnexion envoyée pour ${playerName}`);
+            }
+
+            if ((color === 'black' && game.gameState === 'playing') || game.gameState === 'playing') {
                 io.to(gameId).emit('game-start', {
-                    white: game.players.white.name,
-                    black: game.players.black.name,
+                    white: game.players.white?.name || 'En attente...',
+                    black: game.players.black?.name || 'En attente...',
                     gameState: game.chess.fen()
                 });
             }
@@ -242,10 +264,14 @@ io.on('connection', (socket) => {
         console.log(`❌ Déconnexion ${socket.id}: ${reason}`);
         
         const result = gameManager.removePlayer(socket.id);
-        if (result) {
-            const { gameId } = result;
-            socket.to(gameId).emit('player-disconnected', {
-                message: 'Un joueur s\'est déconnecté'
+        if (result && result.disconnectedPlayer) {
+            const { gameId, disconnectedPlayer } = result;
+            
+            // Notifier seulement une déconnexion temporaire
+            socket.to(gameId).emit('player-temporarily-disconnected', {
+                playerName: disconnectedPlayer.name,
+                color: disconnectedPlayer.color,
+                message: `${disconnectedPlayer.name} s'est déconnecté temporairement. La partie sera annulée dans 5 minutes s'il ne revient pas.`
             });
         }
     });

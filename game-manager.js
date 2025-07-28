@@ -89,15 +89,58 @@ class GameManager {
         }
 
         const game = this.games.get(gameId);
+        
+        // Vérifier si le joueur était déjà dans cette partie (reconnexion)
+        let isReconnection = false;
+        let reconnectedColor = null;
+        
+        // Vérifier par nom ET s'il y a une place disponible pour ce nom
+        if (game.players.white && 
+            game.players.white.name === playerData.name) {
+            // Reconnexion du joueur blanc - mettre à jour le socketId
+            const oldSocketId = game.players.white.id;
+            game.players.white.id = socketId;
+            isReconnection = true;
+            reconnectedColor = 'white';
+            console.log(`🔄 Reconnexion du joueur blanc: ${playerData.name} (${oldSocketId} → ${socketId})`);
+        } else if (game.players.black && 
+                   game.players.black.name === playerData.name) {
+            // Reconnexion du joueur noir - mettre à jour le socketId
+            const oldSocketId = game.players.black.id;
+            game.players.black.id = socketId;
+            isReconnection = true;
+            reconnectedColor = 'black';
+            console.log(`🔄 Reconnexion du joueur noir: ${playerData.name} (${oldSocketId} → ${socketId})`);
+        }
+        
         this.players.set(socketId, gameId);
 
+        if (isReconnection) {
+            // Remettre la partie en état actif si elle était marquée comme déconnectée
+            if (game.gameState === 'disconnected') {
+                game.gameState = 'playing';
+                console.log(`✅ Partie ${gameId} réactivée après reconnexion`);
+            }
+            return { color: reconnectedColor, game, isReconnection: true };
+        }
+
+        // Vérifier si c'est une tentative de rejoindre une partie déjà complète
+        if (game.players.white && game.players.black) {
+            console.log(`⚠️ Tentative de rejoindre une partie complète par ${playerData.name}`);
+            // Devenir spectateur
+            game.spectators.add(socketId);
+            return { color: 'spectator', game, isReconnection: false };
+        }
+
+        // Nouvelle connexion (pas une reconnexion)
         if (!game.players.white) {
             game.players.white = {
                 id: socketId,
                 name: playerData.name,
                 rating: playerData.rating || 1200
             };
-            return { color: 'white', game };
+            console.log(`👤 Nouveau joueur blanc: ${playerData.name}`);
+            return { color: 'white', game, isReconnection: false };
         } else if (!game.players.black) {
             game.players.black = {
                 id: socketId,
@@ -107,11 +150,13 @@ class GameManager {
             
             game.gameState = 'playing';
             game.startTime = new Date();
+            console.log(`👤 Nouveau joueur noir: ${playerData.name} - Partie démarrée`);
             
-            return { color: 'black', game };
+            return { color: 'black', game, isReconnection: false };
         } else {
+            // Ne devrait pas arriver mais au cas où
             game.spectators.add(socketId);
-            return { color: 'spectator', game };
+            return { color: 'spectator', game, isReconnection: false };
         }
     }
 
@@ -294,27 +339,46 @@ class GameManager {
     }
 
     removePlayer(socketId) {
-        const gameId = this.players.get(socketId);
+        const gameId = this.players.get(socketId); // CORRECTION: socketId au lieu de gameId
         if (!gameId) return null;
 
         const game = this.games.get(gameId);
         if (!game) return null;
 
+        // Ne pas supprimer immédiatement le joueur, juste marquer comme déconnecté temporairement
+        let disconnectedPlayer = null;
+        
         if (game.players.white?.id === socketId) {
-            game.players.white = null;
+            disconnectedPlayer = { ...game.players.white, color: 'white' };
+            // Ne pas supprimer, juste marquer comme déconnecté
+            console.log(`⚠️ Joueur blanc temporairement déconnecté: ${disconnectedPlayer.name}`);
         } else if (game.players.black?.id === socketId) {
-            game.players.black = null;
+            disconnectedPlayer = { ...game.players.black, color: 'black' };
+            // Ne pas supprimer, juste marquer comme déconnecté
+            console.log(`⚠️ Joueur noir temporairement déconnecté: ${disconnectedPlayer.name}`);
         } else {
             game.spectators.delete(socketId);
         }
 
         this.players.delete(socketId);
 
-        if (game.gameState === 'playing' && (!game.players.white || !game.players.black)) {
-            this.endGame(gameId, 'disconnect');
+        // Marquer la partie comme temporairement déconnectée au lieu de la terminer
+        if (disconnectedPlayer && game.gameState === 'playing') {
+            game.gameState = 'disconnected';
+            game.disconnectedAt = new Date();
+            console.log(`⏳ Partie ${gameId} marquée comme déconnectée temporairement`);
+            
+            // Programmer une suppression définitive après 5 minutes
+            setTimeout(() => {
+                const currentGame = this.games.get(gameId);
+                if (currentGame && currentGame.gameState === 'disconnected') {
+                    console.log(`🗑️ Suppression définitive de la partie ${gameId} après timeout`);
+                    this.endGame(gameId, 'timeout');
+                }
+            }, 5 * 60 * 1000); // 5 minutes
         }
 
-        return { gameId, game };
+        return { gameId, game, disconnectedPlayer };
     }
 
     getGame(gameId) {
