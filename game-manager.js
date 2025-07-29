@@ -1,3 +1,4 @@
+//game-manager.js
 const ChessEngine = require('./chess-engine');
 const { Chess } = require('chess.js');
 

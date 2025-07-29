@@ -1,3 +1,4 @@
+<!-- index.html  -->
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -12,11 +13,67 @@
         .game-info { background: #f8f9fa; padding: 20px; width: 300px; border-left: 1px solid #dee2e6; }
         .chess-board { width: 400px; height: 400px; margin: 0 auto; border: 3px solid #8b4513; border-radius: 8px; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
         .square { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 32px; cursor: pointer; position: relative; transition: all 0.2s ease; }
+        
+        /* Thèmes d'échiquier */
+        .board-classic .light { background-color: #f0d9b5; }
+        .board-classic .dark { background-color: #b58863; }
+        
+        .board-green .light { background-color: #eeeed2; }
+        .board-green .dark { background-color: #769656; }
+        
+        .board-blue .light { background-color: #dee3e6; }
+        .board-blue .dark { background-color: #8ca2ad; }
+        
+        .board-wood .light { background-color: #f3e4c9; }
+        .board-wood .dark { background-color: #c19a6b; }
+        
+        .board-marble .light { background-color: #efefef; }
+        .board-marble .dark { background-color: #8a8a8a; }
+        
+        .board-pink .light { background-color: #ffe6f0; }
+        .board-pink .dark { background-color: #ffb3d9; }
+        
+        .board-purple .light { background-color: #e6e0ff; }
+        .board-purple .dark { background-color: #9999ff; }
+        
+        .board-metal .light { background-color: #e0e0e0; }
+        .board-metal .dark { background-color: #606060; }
+        
+        .board-ocean .light { background-color: #b3e5fc; }
+        .board-ocean .dark { background-color: #0288d1; }
+        
+        .board-forest .light { background-color: #c8e6c9; }
+        .board-forest .dark { background-color: #388e3c; }
+        
+        /* Par défaut sans thème */
         .square.light { background-color: #f0d9b5; }
         .square.dark { background-color: #b58863; }
+        
         .square.selected { background-color: #ffff99 !important; box-shadow: inset 0 0 0 3px #ff6b6b; }
         .square.last-move { background-color: #ffeb3b !important; }
         .square:hover { opacity: 0.8; }
+        
+        .theme-selector {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 8px;
+        }
+        .theme-selector h4 {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+        }
+        .theme-selector select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
         .game-status { text-align: center; margin-bottom: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3; }
         .game-status h2 { color: #1976d2; margin-bottom: 5px; }
         .player-info { display: flex; justify-content: space-between; margin-bottom: 20px; gap: 10px; }
@@ -24,7 +81,7 @@
         .player.white { background: #fff; border: 2px solid #ddd; }
         .player.black { background: #333; color: white; border: 2px solid #555; }
         .player.active { border-color: #4caf50; box-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
-        .move-history { max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: white; }
+        .move-history { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; padding: 10px; background: white; }
         .move-history h3 { margin-bottom: 10px; color: #333; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         .move-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; }
         .move-item:last-child { border-bottom: none; }
@@ -94,9 +151,24 @@
                 <div class="player white" id="whitePlayer"><strong>Blancs</strong><div id="whitePlayerName">En attente...</div></div>
                 <div class="player black" id="blackPlayer"><strong>Noirs</strong><div id="blackPlayerName">En attente...</div></div>
             </div>
-            <div class="chess-board" id="chessBoard"></div>
+            <div class="chess-board board-classic" id="chessBoard"></div>
         </div>
         <div class="game-info">
+            <div class="theme-selector">
+                <h4>🎨 Thème de l'échiquier</h4>
+                <select id="boardTheme" onchange="changeBoardTheme()">
+                    <option value="classic">Classique (Marron)</option>
+                    <option value="green">Vert</option>
+                    <option value="blue">Bleu</option>
+                    <option value="wood">Bois</option>
+                    <option value="marble">Marbre</option>
+                    <option value="pink">Rose</option>
+                    <option value="purple">Violet</option>
+                    <option value="metal">Métal</option>
+                    <option value="ocean">Océan</option>
+                    <option value="forest">Forêt</option>
+                </select>
+            </div>
             <div class="move-history"><h3>📜 Historique des coups</h3><div id="moveHistoryList"></div></div>
             <div class="controls">
                 <button class="btn btn-primary" onclick="newGame()">Nouvelle partie</button>
@@ -108,54 +180,403 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
-        let socket, gameId, playerColor, selectedSquare = null, currentGameState = null, moveHistory = [], isReconnecting = false, gameMode = 'multiplayer', aiDifficulty = 3;
-        const pieces = { 'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙', 'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟' };
+       // Remplacer tout le JavaScript dans index.html par ce code corrigé :
 
-        function selectGameMode(mode) { gameMode = mode; document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active')); event.target.classList.add('active'); if (mode === 'multiplayer') { document.getElementById('multiplayerConfig').classList.remove('hidden'); document.getElementById('aiConfig').classList.add('hidden'); } else { document.getElementById('multiplayerConfig').classList.add('hidden'); document.getElementById('aiConfig').classList.remove('hidden'); } }
-        function startGame() { if (gameMode === 'multiplayer') { joinGame(); } else { startAIGame(); } }
-        function joinGame() { const playerName = document.getElementById('playerName').value.trim(); if (!playerName) { alert('Veuillez entrer votre nom'); return; } gameId = document.getElementById('gameId').value.trim() || generateGameId(); document.getElementById('currentGameId').textContent = gameId; localStorage.setItem('chess_gameId', gameId); localStorage.setItem('chess_playerName', playerName); localStorage.setItem('chess_gameMode', 'multiplayer'); initSocket(); socket.emit('join-game', { gameId, playerName, isReconnectionAttempt: isReconnecting }); document.getElementById('joinForm').classList.add('hidden'); document.getElementById('gameInterface').classList.remove('hidden'); }
-        function startAIGame() { const playerName = document.getElementById('playerNameAI').value.trim(); if (!playerName) { alert('Veuillez entrer votre nom'); return; } gameId = 'ai_' + generateGameId(); document.getElementById('currentGameId').textContent = gameId + ' (vs IA)'; localStorage.setItem('chess_gameId', gameId); localStorage.setItem('chess_playerName', playerName); localStorage.setItem('chess_gameMode', 'ai'); localStorage.setItem('chess_aiDifficulty', aiDifficulty); initSocket(); socket.emit('join-ai-game', { gameId, playerName, aiDifficulty }); document.getElementById('joinForm').classList.add('hidden'); document.getElementById('gameInterface').classList.remove('hidden'); }
-        function generateGameId() { return Math.random().toString(36).substr(2, 6).toUpperCase(); }
-        function clearSavedData() { localStorage.removeItem('chess_gameId'); localStorage.removeItem('chess_playerName'); localStorage.removeItem('chess_gameMode'); localStorage.removeItem('chess_aiDifficulty'); alert('✅ Données sauvegardées effacées'); location.reload(); }
+let socket, gameId, playerColor, selectedSquare = null, currentGameState = null, moveHistory = [], isReconnecting = false, gameMode = 'multiplayer', aiDifficulty = 3;
+const pieces = { 'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙', 'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟' };
 
-        function initSocket() {
-            socket = io();
-            setInterval(() => { if (socket.connected) { socket.emit('ping'); } }, 25000);
-            socket.on('pong', () => console.log('🏓 Connexion active'));
-            socket.on('connect', () => console.log('🔌 Connecté au serveur'));
-            socket.on('disconnect', (reason) => { console.log('❌ Déconnecté:', reason); updateGameStatus('⚠️ Connexion perdue... Reconnexion...'); });
-            socket.on('reconnect', () => { console.log('🔄 Reconnecté au serveur'); if (gameId && localStorage.getItem('chess_playerName')) { socket.emit('join-game', { gameId, playerName: localStorage.getItem('chess_playerName') }); } });
-            socket.on('player-assigned', (data) => { playerColor = data.color; currentGameState = data.gameState; createBoard(); updateBoard(); updateGameStatus(`Vous jouez les ${playerColor === 'white' ? 'Blancs' : 'Noirs'}`); });
-            socket.on('game-start', (data) => { document.getElementById('whitePlayerName').textContent = data.white; document.getElementById('blackPlayerName').textContent = data.black; currentGameState = data.gameState; if (!document.getElementById('chessBoard').hasChildNodes()) { createBoard(); } updateBoard(); updateGameStatus('La partie commence !'); updatePlayerTurn(); });
-            socket.on('ai-game-start', (data) => { document.getElementById('whitePlayerName').textContent = data.player; document.getElementById('blackPlayerName').textContent = `🤖 IA Niveau ${data.aiLevel}`; currentGameState = data.gameState; if (!document.getElementById('chessBoard').hasChildNodes()) { createBoard(); } updateBoard(); updateGameStatus('Partie contre IA commencée ! Vous jouez les Blancs'); updatePlayerTurn(); });
-            socket.on('move-made', (data) => { const moveText = data.isAIMove ? `🤖 IA joue: ${data.move.san}` : `📨 Coup reçu: ${data.move.san}`; console.log(moveText); currentGameState = data.gameState; moveHistory = data.moveHistory; updateBoard(); updateMoveHistory(); updatePlayerTurn(); clearSelection(); if (data.isAIMove) { updateGameStatus('🤖 IA a joué - À votre tour !'); } });
-            socket.on('move-history', (data) => { moveHistory = data; updateMoveHistory(); });
-            socket.on('game-over', (data) => { updateGameStatus(`🏁 ${data.result}`); clearSelection(); });
-            socket.on('invalid-move', (message) => { console.log('❌ Coup invalide:', message); updateBoard(); clearSelection(); alert(message); });
-            socket.on('player-reconnected', (data) => { console.log(`🔄 ${data.playerName} s'est reconnecté`); updateGameStatus(`✅ ${data.playerName} s'est reconnecté !`); setTimeout(() => { updatePlayerTurn(); }, 1000); });
-            socket.on('player-temporarily-disconnected', (data) => { console.log(`⚠️ ${data.playerName} temporairement déconnecté`); updateGameStatus(`⚠️ ${data.message}`); });
-            socket.on('player-disconnected', () => { updateGameStatus('❌ Un joueur s\'est définitivement déconnecté'); });
-            socket.on('spectator-mode', (data) => { currentGameState = data.gameState; moveHistory = data.moveHistory; updateBoard(); updateMoveHistory(); updateGameStatus('👀 Mode spectateur'); if (data.players.white) { document.getElementById('whitePlayerName').textContent = data.players.white; } if (data.players.black) { document.getElementById('blackPlayerName').textContent = data.players.black; } });
-            socket.on('game-reset', (data) => { currentGameState = data.gameState; moveHistory = data.moveHistory; updateBoard(); updateMoveHistory(); updateGameStatus('Nouvelle partie commencée !'); clearSelection(); });
+function changeBoardTheme() {
+    const board = document.getElementById('chessBoard');
+    const theme = document.getElementById('boardTheme').value;
+    
+    // Retirer toutes les classes de thème d'échiquier
+    board.className = board.className.replace(/board-\w+/g, '');
+    
+    // Ajouter la nouvelle classe de thème et garder "chess-board"
+    board.className = 'chess-board board-' + theme;
+    
+    // Sauvegarder la préférence
+    localStorage.setItem('chess_boardTheme', theme);
+}
+
+function loadThemePreferences() {
+    const savedBoardTheme = localStorage.getItem('chess_boardTheme');
+    
+    if (savedBoardTheme) {
+        document.getElementById('boardTheme').value = savedBoardTheme;
+        changeBoardTheme();
+    }
+}
+
+function selectGameMode(mode) { 
+    gameMode = mode; 
+    
+    // Enlever la classe active de tous les boutons
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active')); 
+    
+    // Ajouter la classe active au bouton cliqué
+    event.target.classList.add('active'); 
+    
+    if (mode === 'multiplayer') { 
+        document.getElementById('multiplayerConfig').classList.remove('hidden'); 
+        document.getElementById('aiConfig').classList.add('hidden'); 
+    } else { 
+        document.getElementById('multiplayerConfig').classList.add('hidden'); 
+        document.getElementById('aiConfig').classList.remove('hidden'); 
+    } 
+}
+
+function startGame() { 
+    if (gameMode === 'multiplayer') { 
+        joinGame(); 
+    } else { 
+        startAIGame(); 
+    } 
+}
+
+function joinGame() { 
+    const playerName = document.getElementById('playerName').value.trim(); 
+    if (!playerName) { 
+        alert('Veuillez entrer votre nom'); 
+        return; 
+    } 
+    
+    gameId = document.getElementById('gameId').value.trim() || generateGameId(); 
+    document.getElementById('currentGameId').textContent = gameId; 
+    localStorage.setItem('chess_gameId', gameId); 
+    localStorage.setItem('chess_playerName', playerName); 
+    localStorage.setItem('chess_gameMode', 'multiplayer'); 
+    
+    initSocket(); 
+    socket.emit('join-game', { gameId, playerName, isReconnectionAttempt: isReconnecting }); 
+    
+    document.getElementById('joinForm').classList.add('hidden'); 
+    document.getElementById('gameInterface').classList.remove('hidden'); 
+    loadThemePreferences(); 
+}
+
+function startAIGame() { 
+    const playerName = document.getElementById('playerNameAI').value.trim(); 
+    if (!playerName) { 
+        alert('Veuillez entrer votre nom'); 
+        return; 
+    } 
+    
+    gameId = 'ai_' + generateGameId(); 
+    document.getElementById('currentGameId').textContent = gameId + ' (vs IA)'; 
+    localStorage.setItem('chess_gameId', gameId); 
+    localStorage.setItem('chess_playerName', playerName); 
+    localStorage.setItem('chess_gameMode', 'ai'); 
+    localStorage.setItem('chess_aiDifficulty', aiDifficulty); 
+    
+    initSocket(); 
+    socket.emit('join-ai-game', { gameId, playerName, aiDifficulty }); 
+    
+    document.getElementById('joinForm').classList.add('hidden'); 
+    document.getElementById('gameInterface').classList.remove('hidden'); 
+    loadThemePreferences(); 
+}
+
+function generateGameId() { 
+    return Math.random().toString(36).substr(2, 6).toUpperCase(); 
+}
+
+function clearSavedData() { 
+    localStorage.removeItem('chess_gameId'); 
+    localStorage.removeItem('chess_playerName'); 
+    localStorage.removeItem('chess_gameMode'); 
+    localStorage.removeItem('chess_aiDifficulty'); 
+    localStorage.removeItem('chess_boardTheme'); 
+    alert('✅ Données sauvegardées effacées'); 
+    location.reload(); 
+}
+
+function initSocket() {
+    socket = io();
+    setInterval(() => { if (socket.connected) { socket.emit('ping'); } }, 25000);
+    socket.on('pong', () => console.log('🏓 Connexion active'));
+    socket.on('connect', () => console.log('🔌 Connecté au serveur'));
+    socket.on('disconnect', (reason) => { console.log('❌ Déconnecté:', reason); updateGameStatus('⚠️ Connexion perdue... Reconnexion...'); });
+    socket.on('reconnect', () => { console.log('🔄 Reconnecté au serveur'); if (gameId && localStorage.getItem('chess_playerName')) { socket.emit('join-game', { gameId, playerName: localStorage.getItem('chess_playerName') }); } });
+    socket.on('player-assigned', (data) => { playerColor = data.color; currentGameState = data.gameState; createBoard(); updateBoard(); updateGameStatus(`Vous jouez les ${playerColor === 'white' ? 'Blancs' : 'Noirs'}`); });
+    socket.on('game-start', (data) => { document.getElementById('whitePlayerName').textContent = data.white; document.getElementById('blackPlayerName').textContent = data.black; currentGameState = data.gameState; if (!document.getElementById('chessBoard').hasChildNodes()) { createBoard(); } updateBoard(); updateGameStatus('La partie commence !'); updatePlayerTurn(); });
+    socket.on('ai-game-start', (data) => { document.getElementById('whitePlayerName').textContent = data.player; document.getElementById('blackPlayerName').textContent = `🤖 IA Niveau ${data.aiLevel}`; currentGameState = data.gameState; if (!document.getElementById('chessBoard').hasChildNodes()) { createBoard(); } updateBoard(); updateGameStatus('Partie contre IA commencée ! Vous jouez les Blancs'); updatePlayerTurn(); });
+    socket.on('move-made', (data) => { const moveText = data.isAIMove ? `🤖 IA joue: ${data.move.san}` : `📨 Coup reçu: ${data.move.san}`; console.log(moveText); currentGameState = data.gameState; moveHistory = data.moveHistory; updateBoard(); updateMoveHistory(); updatePlayerTurn(); clearSelection(); if (data.isAIMove) { updateGameStatus('🤖 IA a joué - À votre tour !'); } });
+    socket.on('move-history', (data) => { moveHistory = data; updateMoveHistory(); });
+    socket.on('game-over', (data) => { updateGameStatus(`🏁 ${data.result}`); clearSelection(); });
+    socket.on('invalid-move', (message) => { console.log('❌ Coup invalide:', message); updateBoard(); clearSelection(); alert(message); });
+    socket.on('player-reconnected', (data) => { console.log(`🔄 ${data.playerName} s'est reconnecté`); updateGameStatus(`✅ ${data.playerName} s'est reconnecté !`); setTimeout(() => { updatePlayerTurn(); }, 1000); });
+    socket.on('player-temporarily-disconnected', (data) => { console.log(`⚠️ ${data.playerName} temporairement déconnecté`); updateGameStatus(`⚠️ ${data.message}`); });
+    socket.on('player-disconnected', () => { updateGameStatus('❌ Un joueur s\'est définitivement déconnecté'); });
+    socket.on('spectator-mode', (data) => { currentGameState = data.gameState; moveHistory = data.moveHistory; updateBoard(); updateMoveHistory(); updateGameStatus('👀 Mode spectateur'); if (data.players.white) { document.getElementById('whitePlayerName').textContent = data.players.white; } if (data.players.black) { document.getElementById('blackPlayerName').textContent = data.players.black; } });
+    socket.on('game-reset', (data) => { currentGameState = data.gameState; moveHistory = data.moveHistory; updateBoard(); updateMoveHistory(); updateGameStatus('Nouvelle partie commencée !'); clearSelection(); });
+}
+
+// Remplacer la fonction createBoard() dans votre JavaScript :
+// Remplacer les fonctions createBoard() et updateBoard() avec la correction des couleurs :
+
+function createBoard() { 
+    const board = document.getElementById('chessBoard'); 
+    board.innerHTML = ''; 
+    const isBlackPlayer = playerColor === 'black'; 
+    
+    console.log(`🎯 Création échiquier pour: ${playerColor}`);
+    
+    if (isBlackPlayer) {
+        // Joueur NOIR: rangs 1→8, files h→a
+        for (let rank = 1; rank <= 8; rank++) { 
+            for (let file = 7; file >= 0; file--) { 
+                const square = document.createElement('div'); 
+                const squareId = String.fromCharCode(97 + file) + rank; 
+                square.id = squareId; 
+                
+                // CORRECTION: Inverser la logique des couleurs
+                square.className = `square ${(rank + file) % 2 === 0 ? 'light' : 'dark'}`; 
+                
+                square.addEventListener('click', () => handleSquareClick(squareId)); 
+                board.appendChild(square); 
+            } 
         }
+    } else {
+        // Joueur BLANC: rangs 8→1, files a→h
+        for (let rank = 8; rank >= 1; rank--) { 
+            for (let file = 0; file < 8; file++) { 
+                const square = document.createElement('div'); 
+                const squareId = String.fromCharCode(97 + file) + rank; 
+                square.id = squareId; 
+                
+                // CORRECTION: Inverser la logique des couleurs
+                square.className = `square ${(rank + file) % 2 === 0 ? 'light' : 'dark'}`; 
+                
+                square.addEventListener('click', () => handleSquareClick(squareId)); 
+                board.appendChild(square); 
+            } 
+        }
+    }
+    
+    updateBoard(); 
+}
 
-        function createBoard() { const board = document.getElementById('chessBoard'); board.innerHTML = ''; const isBlackPlayer = playerColor === 'black'; for (let rank = (isBlackPlayer ? 1 : 8); isBlackPlayer ? rank <= 8 : rank >= 1; isBlackPlayer ? rank++ : rank--) { for (let file = (isBlackPlayer ? 7 : 0); isBlackPlayer ? file >= 0 : file < 8; isBlackPlayer ? file-- : file++) { const square = document.createElement('div'); const squareId = String.fromCharCode(97 + file) + rank; square.id = squareId; square.className = `square ${(rank + file) % 2 === 0 ? 'dark' : 'light'}`; square.addEventListener('click', () => handleSquareClick(squareId)); board.appendChild(square); } } updateBoard(); }
-        function updateBoard() { if (!currentGameState) { console.log('⚠️ Pas d\'état de jeu disponible'); return; } const board = fenToBoard(currentGameState); for (let rank = 8; rank >= 1; rank--) { for (let file = 0; file < 8; file++) { const squareId = String.fromCharCode(97 + file) + rank; const square = document.getElementById(squareId); if (!square) continue; const piece = board[8 - rank][file]; square.textContent = piece ? pieces[piece] : ''; square.className = `square ${(rank + file) % 2 === 0 ? 'dark' : 'light'}`; if (moveHistory.length > 0) { const lastMove = moveHistory[moveHistory.length - 1]; if (squareId === lastMove.from || squareId === lastMove.to) { square.classList.add('last-move'); } } } } }
-        function fenToBoard(fen) { const position = fen.split(' ')[0]; const ranks = position.split('/'); const board = []; for (const rank of ranks) { const row = []; for (const char of rank) { if (isNaN(char)) { row.push(char); } else { for (let i = 0; i < parseInt(char); i++) { row.push(null); } } } board.push(row); } return board; }
-        function handleSquareClick(squareId) { if (!selectedSquare) { const square = document.getElementById(squareId); if (square.textContent) { selectedSquare = squareId; square.classList.add('selected'); } } else { if (selectedSquare !== squareId) { makeMove(selectedSquare, squareId); } clearSelection(); } }
-        function clearSelection() { if (selectedSquare) { const square = document.getElementById(selectedSquare); square.classList.remove('selected'); selectedSquare = null; } document.querySelectorAll('.square.highlight').forEach(sq => { sq.classList.remove('highlight'); }); }
-        function makeMove(from, to) { console.log('🎯 Tentative de coup:', from, 'vers', to); updateBoardOptimistic(from, to); socket.emit('make-move', { gameId: gameId, move: { from, to } }); }
-        function updateBoardOptimistic(from, to) { const fromSquare = document.getElementById(from); const toSquare = document.getElementById(to); if (fromSquare && toSquare) { toSquare.textContent = fromSquare.textContent; fromSquare.textContent = ''; document.querySelectorAll('.last-move').forEach(sq => sq.classList.remove('last-move')); fromSquare.classList.add('last-move'); toSquare.classList.add('last-move'); } }
-        function updateMoveHistory() { const historyList = document.getElementById('moveHistoryList'); historyList.innerHTML = ''; for (let i = 0; i < moveHistory.length; i++) { const move = moveHistory[i]; const moveItem = document.createElement('div'); moveItem.className = 'move-item'; const moveNumber = Math.floor(i / 2) + 1; const isWhiteMove = i % 2 === 0; moveItem.innerHTML = `<span class="move-number">${moveNumber}${isWhiteMove ? '.' : '...'}</span><span class="move-notation">${move.move}</span>`; historyList.appendChild(moveItem); } historyList.scrollTop = historyList.scrollHeight; }
-        function updateGameStatus(message) { document.getElementById('gameStatus').innerHTML = `<h2>${message}</h2>`; }
-        function updatePlayerTurn() { const fen = currentGameState; const turn = fen.split(' ')[1]; const whitePlayer = document.getElementById('whitePlayer'); const blackPlayer = document.getElementById('blackPlayer'); whitePlayer.classList.remove('active'); blackPlayer.classList.remove('active'); if (turn === 'w') { whitePlayer.classList.add('active'); updateGameStatus('Au tour des Blancs'); } else { blackPlayer.classList.add('active'); updateGameStatus('Au tour des Noirs'); } }
-        function newGame() { if (confirm('Êtes-vous sûr de vouloir commencer une nouvelle partie ?')) { socket.emit('new-game', gameId); } }
-        function copyGameLink() { const link = `${window.location.origin}/game/${gameId}`; navigator.clipboard.writeText(link).then(() => { alert('Lien copié dans le presse-papiers !'); }); }
-        function leaveGame() { if (confirm('Êtes-vous sûr de vouloir quitter la partie ?')) { location.reload(); } }
-        
-        document.addEventListener('DOMContentLoaded', () => { document.querySelectorAll('.btn-difficulty').forEach(btn => { btn.addEventListener('click', (e) => { e.preventDefault(); document.querySelectorAll('.btn-difficulty').forEach(b => b.classList.remove('active')); btn.classList.add('active'); aiDifficulty = parseInt(btn.dataset.level); const difficultyInfo = { 1: "Temps de réflexion: ~0.1s (Très facile)", 2: "Temps de réflexion: ~0.2s (Facile)", 3: "Temps de réflexion: ~0.5s (Moyen)", 4: "Temps de réflexion: ~2s (Difficile)", 5: "Temps de réflexion: ~5s (Expert)" }; document.getElementById('difficultyInfo').textContent = difficultyInfo[aiDifficulty]; }); }); });
-        
-        window.addEventListener('load', () => { const urlPath = window.location.pathname; const match = urlPath.match(/\/game\/(.+)/); if (match) { document.getElementById('gameId').value = match[1]; } const savedGameId = localStorage.getItem('chess_gameId'); const savedPlayerName = localStorage.getItem('chess_playerName'); const savedGameMode = localStorage.getItem('chess_gameMode'); if (savedGameId && savedPlayerName) { if (savedGameMode === 'ai') { document.getElementById('playerNameAI').value = savedPlayerName; localStorage.removeItem('chess_gameId'); localStorage.removeItem('chess_playerName'); localStorage.removeItem('chess_gameMode'); return; } else { document.getElementById('gameId').value = savedGameId; document.getElementById('playerName').value = savedPlayerName; } const reconnectMessage = `Voulez-vous vous reconnecter à la partie ${savedGameId} en tant que ${savedPlayerName} ?`; if (confirm(reconnectMessage)) { isReconnecting = true; selectGameMode('multiplayer'); joinGame(); } else { localStorage.removeItem('chess_gameId'); localStorage.removeItem('chess_playerName'); localStorage.removeItem('chess_gameMode'); } } });
-    </script>
+function updateBoard() { 
+    if (!currentGameState) { 
+        console.log('⚠️ Pas d\'état de jeu disponible'); 
+        return; 
+    } 
+    const board = fenToBoard(currentGameState); 
+    
+    for (let rank = 1; rank <= 8; rank++) { 
+        for (let file = 0; file < 8; file++) { 
+            const squareId = String.fromCharCode(97 + file) + rank; 
+            const square = document.getElementById(squareId); 
+            if (!square) continue; 
+            
+            const piece = board[8 - rank][file]; 
+            square.textContent = piece ? pieces[piece] : ''; 
+            
+            // CORRECTION: Appliquer la bonne couleur de case
+            square.className = `square ${(rank + file) % 2 === 0 ? 'light' : 'dark'}`; 
+            
+            if (moveHistory.length > 0) { 
+                const lastMove = moveHistory[moveHistory.length - 1]; 
+                if (squareId === lastMove.from || squareId === lastMove.to) { 
+                    square.classList.add('last-move'); 
+                } 
+            } 
+        } 
+    } 
+    
+    // Debug pour vérifier les couleurs ET l'orientation
+    console.log(`🔍 Case h1 (bas-droite blancs): ${document.getElementById('h1')?.className.includes('light') ? 'BLANCHE ✅' : 'NOIRE ❌'}`);
+    console.log(`🔍 Case a8 (bas-droite noirs): ${document.getElementById('a8')?.className.includes('light') ? 'BLANCHE ✅' : 'NOIRE ❌'}`);
+    console.log(`🔍 Roi blanc: ${document.getElementById('e1')?.textContent} | Roi noir: ${document.getElementById('e8')?.textContent}`);
+}
+
+// Fonction utilitaire pour déboguer l'orientation (optionnelle)
+function debugBoardOrientation() {
+    console.log(`🎯 Joueur: ${playerColor || 'non défini'}`);
+    console.log(`📋 Échiquier orienté pour: ${playerColor === 'black' ? 'Noirs (rangs 8→1)' : 'Blancs (rangs 1→8)'}`);
+    
+    // Afficher les coordonnées des coins pour vérification
+    const topLeft = document.querySelector('.chess-board').firstChild;
+    const topRight = document.querySelector('.chess-board').children[7];
+    const bottomLeft = document.querySelector('.chess-board').children[56];
+    const bottomRight = document.querySelector('.chess-board').lastChild;
+    
+    console.log(`📍 Coins - TopLeft: ${topLeft?.id}, TopRight: ${topRight?.id}`);
+    console.log(`📍 Coins - BottomLeft: ${bottomLeft?.id}, BottomRight: ${bottomRight?.id}`);
+}
+
+function fenToBoard(fen) { 
+    const position = fen.split(' ')[0]; 
+    const ranks = position.split('/'); 
+    const board = []; 
+    for (const rank of ranks) { 
+        const row = []; 
+        for (const char of rank) { 
+            if (isNaN(char)) { 
+                row.push(char); 
+            } else { 
+                for (let i = 0; i < parseInt(char); i++) { 
+                    row.push(null); 
+                } 
+            } 
+        } 
+        board.push(row); 
+    } 
+    return board; 
+}
+
+function handleSquareClick(squareId) { 
+    if (!selectedSquare) { 
+        const square = document.getElementById(squareId); 
+        if (square.textContent) { 
+            selectedSquare = squareId; 
+            square.classList.add('selected'); 
+        } 
+    } else { 
+        if (selectedSquare !== squareId) { 
+            makeMove(selectedSquare, squareId); 
+        } 
+        clearSelection(); 
+    } 
+}
+
+function clearSelection() { 
+    if (selectedSquare) { 
+        const square = document.getElementById(selectedSquare); 
+        square.classList.remove('selected'); 
+        selectedSquare = null; 
+    } 
+    document.querySelectorAll('.square.highlight').forEach(sq => { 
+        sq.classList.remove('highlight'); 
+    }); 
+}
+
+function makeMove(from, to) { 
+    console.log('🎯 Tentative de coup:', from, 'vers', to); 
+    updateBoardOptimistic(from, to); 
+    socket.emit('make-move', { gameId: gameId, move: { from, to } }); 
+}
+
+function updateBoardOptimistic(from, to) { 
+    const fromSquare = document.getElementById(from); 
+    const toSquare = document.getElementById(to); 
+    if (fromSquare && toSquare) { 
+        toSquare.textContent = fromSquare.textContent; 
+        fromSquare.textContent = ''; 
+        document.querySelectorAll('.last-move').forEach(sq => sq.classList.remove('last-move')); 
+        fromSquare.classList.add('last-move'); 
+        toSquare.classList.add('last-move'); 
+    } 
+}
+
+function updateMoveHistory() { 
+    const historyList = document.getElementById('moveHistoryList'); 
+    historyList.innerHTML = ''; 
+    for (let i = 0; i < moveHistory.length; i++) { 
+        const move = moveHistory[i]; 
+        const moveItem = document.createElement('div'); 
+        moveItem.className = 'move-item'; 
+        const moveNumber = Math.floor(i / 2) + 1; 
+        const isWhiteMove = i % 2 === 0; 
+        moveItem.innerHTML = `<span class="move-number">${moveNumber}${isWhiteMove ? '.' : '...'}</span><span class="move-notation">${move.move}</span>`; 
+        historyList.appendChild(moveItem); 
+    } 
+    historyList.scrollTop = historyList.scrollHeight; 
+}
+
+function updateGameStatus(message) { 
+    document.getElementById('gameStatus').innerHTML = `<h2>${message}</h2>`; 
+}
+
+function updatePlayerTurn() { 
+    const fen = currentGameState; 
+    const turn = fen.split(' ')[1]; 
+    const whitePlayer = document.getElementById('whitePlayer'); 
+    const blackPlayer = document.getElementById('blackPlayer'); 
+    whitePlayer.classList.remove('active'); 
+    blackPlayer.classList.remove('active'); 
+    if (turn === 'w') { 
+        whitePlayer.classList.add('active'); 
+        updateGameStatus('Au tour des Blancs'); 
+    } else { 
+        blackPlayer.classList.add('active'); 
+        updateGameStatus('Au tour des Noirs'); 
+    } 
+}
+
+function newGame() { 
+    if (confirm('Êtes-vous sûr de vouloir commencer une nouvelle partie ?')) { 
+        socket.emit('new-game', gameId); 
+    } 
+}
+
+function copyGameLink() { 
+    const link = `${window.location.origin}/game/${gameId}`; 
+    navigator.clipboard.writeText(link).then(() => { 
+        alert('Lien copié dans le presse-papiers !'); 
+    }); 
+}
+
+function leaveGame() { 
+    if (confirm('Êtes-vous sûr de vouloir quitter la partie ?')) { 
+        location.reload(); 
+    } 
+}
+
+// Gestionnaire des événements DOM
+document.addEventListener('DOMContentLoaded', () => { 
+    document.querySelectorAll('.btn-difficulty').forEach(btn => { 
+        btn.addEventListener('click', (e) => { 
+            e.preventDefault(); 
+            document.querySelectorAll('.btn-difficulty').forEach(b => b.classList.remove('active')); 
+            btn.classList.add('active'); 
+            aiDifficulty = parseInt(btn.dataset.level); 
+            const difficultyInfo = { 
+                1: "Temps de réflexion: ~0.1s (Très facile)", 
+                2: "Temps de réflexion: ~0.2s (Facile)", 
+                3: "Temps de réflexion: ~0.5s (Moyen)", 
+                4: "Temps de réflexion: ~2s (Difficile)", 
+                5: "Temps de réflexion: ~5s (Expert)" 
+            }; 
+            document.getElementById('difficultyInfo').textContent = difficultyInfo[aiDifficulty]; 
+        }); 
+    }); 
+});
+
+// Gestionnaire de chargement de la page
+window.addEventListener('load', () => { 
+    const urlPath = window.location.pathname; 
+    const match = urlPath.match(/\/game\/(.+)/); 
+    if (match) { 
+        document.getElementById('gameId').value = match[1]; 
+    } 
+    const savedGameId = localStorage.getItem('chess_gameId'); 
+    const savedPlayerName = localStorage.getItem('chess_playerName'); 
+    const savedGameMode = localStorage.getItem('chess_gameMode'); 
+    if (savedGameId && savedPlayerName) { 
+        if (savedGameMode === 'ai') { 
+            document.getElementById('playerNameAI').value = savedPlayerName; 
+            localStorage.removeItem('chess_gameId'); 
+            localStorage.removeItem('chess_playerName'); 
+            localStorage.removeItem('chess_gameMode'); 
+            return; 
+        } else { 
+            document.getElementById('gameId').value = savedGameId; 
+            document.getElementById('playerName').value = savedPlayerName; 
+        } 
+        const reconnectMessage = `Voulez-vous vous reconnecter à la partie ${savedGameId} en tant que ${savedPlayerName} ?`; 
+        if (confirm(reconnectMessage)) { 
+            isReconnecting = true; 
+            selectGameMode('multiplayer'); 
+            joinGame(); 
+        } else { 
+            localStorage.removeItem('chess_gameId'); 
+            localStorage.removeItem('chess_playerName'); 
+            localStorage.removeItem('chess_gameMode'); 
+        } 
+    } 
+});
+</script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+//chess-engine.js
 const { Chess } = require('chess.js');
 
 class ChessEngine {
