@@ -11,11 +11,24 @@
         .chess-board-container { padding: 20px; flex: 1; }
         .game-info { background: #f8f9fa; padding: 20px; width: 350px; border-left: 1px solid #dee2e6; }
         
-        /* Échiquier plus grand avec pièces Unicode améliorées */
+        /* Conteneur principal centré */
+        .chess-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+
+        /* Conteneur échiquier + coordonnées */
+        .chess-board-with-coords {
+            position: relative;
+            display: inline-block;
+        }
+        
+        /* Échiquier avec pièces Unicode améliorées */
         .chess-board { 
             width: 500px; 
             height: 500px; 
-            margin: 0 auto; 
             border: 3px solid #8b4513; 
             border-radius: 8px; 
             display: grid; 
@@ -33,6 +46,51 @@
             cursor: pointer; 
             position: relative; 
             transition: all 0.2s ease; 
+        }
+        
+        /* Coordonnées des files (a-h) en bas */
+        .file-coords {
+            display: flex;
+            width: 500px;
+            height: 20px;
+            justify-content: space-around;
+            align-items: center;
+            margin-top: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            color: #8b4513;
+            user-select: none;
+        }
+
+        .file-label {
+            width: 62.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Coordonnées des rangs (1-8) à droite */
+        .rank-coords {
+            position: absolute;
+            right: -25px;
+            top: 0;
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+            width: 20px;
+            justify-content: space-around;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            color: #8b4513;
+            user-select: none;
+        }
+
+        .rank-label {
+            height: 62.5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         /* Thèmes d'échiquier */
@@ -280,14 +338,6 @@
         .join-form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; }
         .join-form input:focus { outline: none; border-color: #007bff; }
         .hidden { display: none; }
-        
-        /* Responsive pour mobile */
-        @media (max-width: 768px) { 
-            .game-container { flex-direction: column; } 
-            .game-info { width: 100%; border-left: none; border-top: 1px solid #dee2e6; } 
-            .chess-board { width: 400px; height: 400px; } 
-            .square { width: 50px; height: 50px; font-size: 36px; } 
-        }
     </style>
 </head>
 <body>
@@ -329,7 +379,37 @@
                 <div class="player white" id="whitePlayer"><strong>Blancs</strong><div id="whitePlayerName">En attente...</div></div>
                 <div class="player black" id="blackPlayer"><strong>Noirs</strong><div id="blackPlayerName">En attente...</div></div>
             </div>
-            <div class="chess-board board-classic pieces-classic" id="chessBoard"></div>
+            
+            <!-- Conteneur centré avec coordonnées -->
+            <div class="chess-container">
+                <div class="chess-board-with-coords">
+                    <div class="chess-board board-classic pieces-classic" id="chessBoard"></div>
+                    
+                    <!-- Coordonnées des files (en bas) -->
+                    <div class="file-coords" id="fileCoords">
+                        <div class="file-label">a</div>
+                        <div class="file-label">b</div>
+                        <div class="file-label">c</div>
+                        <div class="file-label">d</div>
+                        <div class="file-label">e</div>
+                        <div class="file-label">f</div>
+                        <div class="file-label">g</div>
+                        <div class="file-label">h</div>
+                    </div>
+                    
+                    <!-- Coordonnées des rangs (à droite) -->
+                    <div class="rank-coords" id="rankCoords">
+                        <div class="rank-label">8</div>
+                        <div class="rank-label">7</div>
+                        <div class="rank-label">6</div>
+                        <div class="rank-label">5</div>
+                        <div class="rank-label">4</div>
+                        <div class="rank-label">3</div>
+                        <div class="rank-label">2</div>
+                        <div class="rank-label">1</div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="game-info">
             <div class="theme-selector">
@@ -389,17 +469,13 @@
             const board = document.getElementById('chessBoard');
             const theme = document.getElementById('boardTheme').value;
             
-            // Retirer toutes les classes de thème d'échiquier
             board.className = board.className.replace(/board-\w+/g, '');
             
-            // Garder les classes existantes et ajouter le nouveau thème
             const existingClasses = board.className.split(' ').filter(cls => 
                 cls === 'chess-board' || cls.startsWith('pieces-')
             ).join(' ');
             
             board.className = `${existingClasses} board-${theme}`;
-            
-            // Sauvegarder la préférence
             localStorage.setItem('chess_boardTheme', theme);
         }
 
@@ -407,25 +483,78 @@
             const board = document.getElementById('chessBoard');
             const style = document.getElementById('pieceStyle').value;
             
-            // Retirer toutes les classes de style de pièces
             board.className = board.className.replace(/pieces-\w+/g, '');
             
-            // Garder les classes existantes et ajouter le nouveau style
             const existingClasses = board.className.split(' ').filter(cls => 
                 cls === 'chess-board' || cls.startsWith('board-')
             ).join(' ');
             
             board.className = `${existingClasses} pieces-${style}`;
             
-            // Appliquer le même style à la zone des pièces capturées
             const capturedDiv = document.querySelector('.captured-pieces');
             if (capturedDiv) {
                 capturedDiv.className = capturedDiv.className.replace(/pieces-\w+/g, '');
                 capturedDiv.className += ` pieces-${style}`;
             }
             
-            // Sauvegarder la préférence
             localStorage.setItem('chess_pieceStyle', style);
+        }
+
+        function updateCoordinates() {
+            const isBlackPlayer = playerColor === 'black';
+            
+            const rankCoords = document.getElementById('rankCoords');
+            const fileCoords = document.getElementById('fileCoords');
+            
+            if (isBlackPlayer) {
+                rankCoords.innerHTML = `
+                    <div class="rank-label">1</div>
+                    <div class="rank-label">2</div>
+                    <div class="rank-label">3</div>
+                    <div class="rank-label">4</div>
+                    <div class="rank-label">5</div>
+                    <div class="rank-label">6</div>
+                    <div class="rank-label">7</div>
+                    <div class="rank-label">8</div>
+                `;
+                
+                fileCoords.innerHTML = `
+                    <div class="file-label">h</div>
+                    <div class="file-label">g</div>
+                    <div class="file-label">f</div>
+                    <div class="file-label">e</div>
+                    <div class="file-label">d</div>
+                    <div class="file-label">c</div>
+                    <div class="file-label">b</div>
+                    <div class="file-label">a</div>
+                `;
+                
+                console.log('🔄 Coordonnées pour joueur noir');
+            } else {
+                rankCoords.innerHTML = `
+                    <div class="rank-label">8</div>
+                    <div class="rank-label">7</div>
+                    <div class="rank-label">6</div>
+                    <div class="rank-label">5</div>
+                    <div class="rank-label">4</div>
+                    <div class="rank-label">3</div>
+                    <div class="rank-label">2</div>
+                    <div class="rank-label">1</div>
+                `;
+                
+                fileCoords.innerHTML = `
+                    <div class="file-label">a</div>
+                    <div class="file-label">b</div>
+                    <div class="file-label">c</div>
+                    <div class="file-label">d</div>
+                    <div class="file-label">e</div>
+                    <div class="file-label">f</div>
+                    <div class="file-label">g</div>
+                    <div class="file-label">h</div>
+                `;
+                
+                console.log('🔄 Coordonnées pour joueur blanc');
+            }
         }
         
         function loadThemePreferences() {
@@ -441,7 +570,6 @@
                 document.getElementById('pieceStyle').value = savedPieceStyle;
                 changePieceStyle();
             } else {
-                // Appliquer le style par défaut
                 const board = document.getElementById('chessBoard');
                 if (!board.className.includes('pieces-')) {
                     board.className += ' pieces-classic';
@@ -455,11 +583,7 @@
 
         function selectGameMode(mode) { 
             gameMode = mode; 
-            
-            // Enlever la classe active de tous les boutons
             document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active')); 
-            
-            // Ajouter la classe active au bouton cliqué
             event.target.classList.add('active'); 
             
             if (mode === 'multiplayer') { 
@@ -562,7 +686,6 @@
             const board = document.getElementById('chessBoard'); 
             board.innerHTML = ''; 
             
-            // S'assurer que les classes par défaut sont présentes
             if (!board.className.includes('pieces-')) {
                 board.className += ' pieces-classic';
             }
@@ -596,47 +719,59 @@
                 }
             }
             
+            updateCoordinates();
             updateBoard();
         }
 
         function updateBoard() { 
-            if (!currentGameState) { 
-                console.log('⚠️ Pas d\'état de jeu disponible'); 
-                return; 
-            } 
-            const board = fenToBoard(currentGameState); 
+    if (!currentGameState) { 
+        console.log('⚠️ Pas d\'état de jeu disponible'); 
+        return; 
+    } 
+    const board = fenToBoard(currentGameState); 
+    
+    for (let rank = 1; rank <= 8; rank++) { 
+        for (let file = 0; file < 8; file++) { 
+            const squareId = String.fromCharCode(97 + file) + rank; 
+            const square = document.getElementById(squareId); 
+            if (!square) continue; 
             
-            for (let rank = 1; rank <= 8; rank++) { 
-                for (let file = 0; file < 8; file++) { 
-                    const squareId = String.fromCharCode(97 + file) + rank; 
-                    const square = document.getElementById(squareId); 
-                    if (!square) continue; 
-                    
-                    const piece = board[8 - rank][file]; 
-                    
-                    // Gérer l'affichage des pièces avec couleurs
-                    if (piece && pieces[piece]) {
-                        square.textContent = pieces[piece];
-                        square.setAttribute('data-piece-color', piece === piece.toUpperCase() ? 'white' : 'black');
-                    } else {
-                        square.textContent = '';
-                        square.removeAttribute('data-piece-color');
-                    }
-                    
-                    square.className = `square ${(rank + file) % 2 === 0 ? 'light' : 'dark'}`; 
-                    
-                    if (moveHistory.length > 0) { 
-                        const lastMove = moveHistory[moveHistory.length - 1]; 
-                        if (squareId === lastMove.from || squareId === lastMove.to) { 
-                            square.classList.add('last-move'); 
-                        } 
-                    } 
-                } 
+            const piece = board[8 - rank][file]; 
+            
+            if (piece && pieces[piece]) {
+                square.textContent = pieces[piece];
+                square.setAttribute('data-piece-color', piece === piece.toUpperCase() ? 'white' : 'black');
+            } else {
+                square.textContent = '';
+                square.removeAttribute('data-piece-color');
             }
             
-            // Mettre à jour les pièces capturées
-            updateCapturedPieces();
-        }
+            square.className = `square ${(rank + file) % 2 === 0 ? 'light' : 'dark'}`; 
+            
+            if (moveHistory.length > 0) { 
+                const lastMove = moveHistory[moveHistory.length - 1]; 
+                if (squareId === lastMove.from || squareId === lastMove.to) { 
+                    square.classList.add('last-move'); 
+                }
+                
+                // NOUVEAU: Indiquer les coups spéciaux
+                if (lastMove.flags) {
+                    if (lastMove.flags.includes('e')) { // En passant
+                        square.title = 'Prise en passant';
+                    }
+                    if (lastMove.flags.includes('k') || lastMove.flags.includes('q')) { // Roque
+                        square.title = 'Roque';
+                    }
+                    if (lastMove.flags.includes('p')) { // Promotion
+                        square.title = 'Promotion';
+                    }
+                }
+            } 
+        } 
+    }
+    
+    updateCapturedPieces();
+}
 
         function updateCapturedPieces() {
             const captured = getCapturedPieces();
@@ -658,13 +793,11 @@
         }
 
         function getCapturedPieces() {
-            // Pièces de départ
             const startingPieces = {
                 'K': 1, 'Q': 1, 'R': 2, 'B': 2, 'N': 2, 'P': 8,
                 'k': 1, 'q': 1, 'r': 2, 'b': 2, 'n': 2, 'p': 8
             };
             
-            // Compter les pièces actuelles sur l'échiquier
             const currentPieces = {};
             Object.keys(startingPieces).forEach(piece => currentPieces[piece] = 0);
             
@@ -680,7 +813,6 @@
                 }
             }
             
-            // Calculer les pièces capturées
             const captured = { white: [], black: [] };
             
             Object.keys(startingPieces).forEach(piece => {
@@ -745,17 +877,46 @@
             }); 
         }
 
-        function makeMove(from, to) { 
-            console.log('🎯 Tentative de coup:', from, 'vers', to); 
-            updateBoardOptimistic(from, to); 
-            socket.emit('make-move', { gameId: gameId, move: { from, to } }); 
+function makeMove(from, to) { 
+    console.log('🎯 Tentative de coup:', from, 'vers', to); 
+    
+    // Créer un objet move plus complet pour chess.js
+    const moveData = { from, to };
+    
+    // Vérifier si c'est une promotion (pion atteignant la dernière rangée)
+    const fromSquare = document.getElementById(from);
+    if (fromSquare && fromSquare.textContent) {
+        const piece = fromSquare.textContent;
+        const isPawn = piece === '♙' || piece === '♟';
+        const toRank = parseInt(to[1]);
+        
+        if (isPawn && (toRank === 8 || toRank === 1)) {
+            // Demander le choix de promotion
+            const promotionChoice = prompt(
+                "Promotion du pion ! Choisissez une pièce :\n" +
+                "q = Dame\n" +
+                "r = Tour\n" +
+                "b = Fou\n" +
+                "n = Cavalier",
+                "q"
+            );
+            
+            if (promotionChoice && ['q', 'r', 'b', 'n'].includes(promotionChoice.toLowerCase())) {
+                moveData.promotion = promotionChoice.toLowerCase();
+            } else {
+                moveData.promotion = 'q'; // Dame par défaut
+            }
         }
+    }
+    
+    updateBoardOptimistic(from, to); 
+    socket.emit('make-move', { gameId: gameId, move: moveData }); 
+}
 
         function updateBoardOptimistic(from, to) { 
             const fromSquare = document.getElementById(from); 
             const toSquare = document.getElementById(to); 
             if (fromSquare && toSquare) { 
-                // Copier les attributs de couleur
                 const pieceColor = fromSquare.getAttribute('data-piece-color');
                 
                 toSquare.textContent = fromSquare.textContent; 
@@ -826,7 +987,6 @@
             } 
         }
         
-        // Gestionnaire des événements DOM
         document.addEventListener('DOMContentLoaded', () => { 
             document.querySelectorAll('.btn-difficulty').forEach(btn => { 
                 btn.addEventListener('click', (e) => { 
@@ -846,7 +1006,6 @@
             }); 
         });
 
-        // Gestionnaire de chargement de la page
         window.addEventListener('load', () => { 
             const urlPath = window.location.pathname; 
             const match = urlPath.match(/\/game\/(.+)/); 

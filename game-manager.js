@@ -162,62 +162,84 @@ class GameManager {
     }
 
     makeMove(socketId, gameId, moveData) {
-        const game = this.games.get(gameId);
-        if (!game) {
-            return { success: false, error: 'Partie non trouvée' };
-        }
-        
-        if (game.gameState !== 'playing') {
-            return { success: false, error: 'Partie non active' };
-        }
+    const game = this.games.get(gameId);
+    if (!game) {
+        return { success: false, error: 'Partie non trouvée' };
+    }
+    
+    if (game.gameState !== 'playing') {
+        return { success: false, error: 'Partie non active' };
+    }
 
-        const playerColor = game.players.white?.id === socketId ? 'white' : 'black';
-        if (!game.players.white || !game.players.black) {
-            return { success: false, error: 'Joueurs manquants' };
-        }
-        
-        if (game.chess.turn() !== playerColor.charAt(0)) {
-            return { success: false, error: 'Ce n\'est pas votre tour' };
-        }
+    const playerColor = game.players.white?.id === socketId ? 'white' : 'black';
+    if (!game.players.white || !game.players.black) {
+        return { success: false, error: 'Joueurs manquants' };
+    }
+    
+    if (game.chess.turn() !== playerColor.charAt(0)) {
+        return { success: false, error: 'Ce n\'est pas votre tour' };
+    }
 
-        try {
-            const moveResult = game.chess.move(moveData);
-            if (!moveResult) {
+    try {
+        console.log('🎯 Tentative de coup:', JSON.stringify(moveData));
+        
+        // chess.js gère automatiquement les coups spéciaux (en passant, roque, promotion)
+        // si on lui donne les bonnes coordonnées
+        const moveResult = game.chess.move(moveData);
+        
+        if (!moveResult) {
+            // Si le coup simple échoue, essayer en mode verbose
+            console.log('⚠️ Coup simple échoué, tentative en mode verbose');
+            const verboseMove = {
+                from: moveData.from,
+                to: moveData.to,
+                promotion: moveData.promotion
+            };
+            
+            const verboseResult = game.chess.move(verboseMove);
+            if (!verboseResult) {
                 return { success: false, error: 'Coup invalide' };
             }
-
-            if (game.engine) {
-                game.engine.loadFen(game.chess.fen());
-            }
-
-            const moveRecord = {
-                move: moveResult.san,
-                from: moveResult.from,
-                to: moveResult.to,
-                player: playerColor,
-                timestamp: new Date().toISOString(),
-                fen: game.chess.fen(),
-                moveTime: 0
-            };
-
-            game.moveHistory.push(moveRecord);
-            this.updateGameStats(gameId, moveResult, 0);
-
-            if (game.chess.isGameOver()) {
-                game.gameState = 'finished';
-            }
-
-            return {
-                success: true,
-                move: moveResult,
-                gameState: game.chess.fen()
-            };
-
-        } catch (error) {
-            console.error('Erreur makeMove:', error);
-            return { success: false, error: 'Erreur lors du coup' };
+            moveResult = verboseResult;
         }
+
+        console.log('✅ Coup accepté:', moveResult.san);
+        
+        // Mettre à jour le moteur IA si présent
+        if (game.engine) {
+            game.engine.loadFen(game.chess.fen());
+        }
+
+        const moveRecord = {
+            move: moveResult.san,
+            from: moveResult.from,
+            to: moveResult.to,
+            player: playerColor,
+            timestamp: new Date().toISOString(),
+            fen: game.chess.fen(),
+            moveTime: 0,
+            flags: moveResult.flags // Inclut les flags spéciaux (en passant, roque, etc.)
+        };
+
+        game.moveHistory.push(moveRecord);
+        this.updateGameStats(gameId, moveResult, 0);
+
+        if (game.chess.isGameOver()) {
+            game.gameState = 'finished';
+        }
+
+        return {
+            success: true,
+            move: moveResult,
+            gameState: game.chess.fen()
+        };
+
+    } catch (error) {
+        console.error('❌ Erreur makeMove:', error);
+        return { success: false, error: 'Erreur lors du coup: ' + error.message };
     }
+}
+
 
     makeAIMove(gameId, aiMove) {
         const game = this.games.get(gameId);
