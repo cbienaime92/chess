@@ -11,9 +11,91 @@
         .game-container { display: flex; gap: 20px; max-width: 1200px; width: 100%; background: white; border-radius: 15px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); overflow: hidden; }
         .chess-board-container { padding: 20px; flex: 1; }
         .game-info { background: #f8f9fa; padding: 20px; width: 300px; border-left: 1px solid #dee2e6; }
-        .chess-board { width: 400px; height: 400px; margin: 0 auto; border: 3px solid #8b4513; border-radius: 8px; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); }
-        .square { width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 32px; cursor: pointer; position: relative; transition: all 0.2s ease; }
-        
+.chess-board { 
+    width: 500px; 
+    height: 500px; 
+    margin: 0 auto; 
+    border: 3px solid #8b4513; 
+    border-radius: 8px; 
+    display: grid; 
+    grid-template-columns: repeat(8, 1fr); 
+    grid-template-rows: repeat(8, 1fr); 
+}
+.square { 
+    width: 62.5px; 
+    height: 62.5px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    font-size: 45px; 
+    cursor: pointer; 
+    position: relative; 
+    transition: all 0.2s ease; 
+}        
+.piece-svg {
+    width: 38px;
+    height: 38px;
+    pointer-events: none;
+}
+
+/* Thèmes des pièces */
+.pieces-classic .piece-white { 
+    fill: #ffffff; 
+    stroke: #000000; 
+    stroke-width: 0.5; 
+}
+.pieces-classic .piece-black { 
+    fill: #000000; 
+    stroke: #333333; 
+    stroke-width: 0.5; 
+}
+
+.pieces-modern .piece-white { 
+    fill: #e8e8e8; 
+    stroke: #666666; 
+    stroke-width: 1; 
+}
+.pieces-modern .piece-black { 
+    fill: #2c2c2c; 
+    stroke: #000000; 
+    stroke-width: 1; 
+}
+
+.pieces-gold .piece-white { 
+    fill: #ffd700; 
+    stroke: #b8860b; 
+    stroke-width: 1; 
+}
+.pieces-gold .piece-black { 
+    fill: #8b4513; 
+    stroke: #654321; 
+    stroke-width: 1; 
+}
+
+.pieces-crystal .piece-white { 
+    fill: #e6f3ff; 
+    stroke: #4169e1; 
+    stroke-width: 1.5; 
+}
+.pieces-crystal .piece-black { 
+    fill: #1e3a8a; 
+    stroke: #000080; 
+    stroke-width: 1.5; 
+}
+
+.pieces-neon .piece-white { 
+    fill: #00ff00; 
+    stroke: #008000; 
+    stroke-width: 2; 
+    filter: drop-shadow(0 0 3px #00ff00); 
+}
+.pieces-neon .piece-black { 
+    fill: #ff0080; 
+    stroke: #800040; 
+    stroke-width: 2; 
+    filter: drop-shadow(0 0 3px #ff0080); 
+}
+
         /* Thèmes d'échiquier */
         .board-classic .light { background-color: #f0d9b5; }
         .board-classic .dark { background-color: #b58863; }
@@ -48,6 +130,77 @@
         /* Par défaut sans thème */
         .square.light { background-color: #f0d9b5; }
         .square.dark { background-color: #b58863; }
+
+        .square[data-piece-color="white"] {
+    color: #ffffff;
+    text-shadow: 
+        2px 2px 4px rgba(0,0,0,0.8),
+        -1.5px -1.5px 0 #000,
+         1.5px -1.5px 0 #000,
+        -1.5px  1.5px 0 #000,
+         1.5px  1.5px 0 #000;
+}
+
+.square[data-piece-color="black"] {
+    color: #1a1a1a;
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.3);
+}
+
+/* Zone des pièces capturées */
+.captured-pieces {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #2196f3;
+}
+
+.captured-pieces h4 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 14px;
+}
+
+.captured-row {
+    display: flex;
+    align-items: center;
+    margin: 8px 0;
+    min-height: 30px;
+}
+
+.captured-label {
+    font-weight: bold;
+    width: 80px;
+    font-size: 14px;
+}
+
+.captured-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.captured-piece {
+    font-size: 28px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.5);
+}
+
+.captured-piece.white {
+    color: #ffffff;
+    text-shadow: 
+        1.5px 1.5px 3px rgba(0,0,0,0.8),
+        -1px -1px 0 #000,
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000;
+}
+
+.captured-piece.black {
+    color: #1a1a1a;
+    text-shadow: 1px 1px 2px rgba(255,255,255,0.3);
+}
         
         .square.selected { background-color: #ffff99 !important; box-shadow: inset 0 0 0 3px #ff6b6b; }
         .square.last-move { background-color: #ffeb3b !important; }
@@ -155,20 +308,41 @@
         </div>
         <div class="game-info">
             <div class="theme-selector">
-                <h4>🎨 Thème de l'échiquier</h4>
-                <select id="boardTheme" onchange="changeBoardTheme()">
-                    <option value="classic">Classique (Marron)</option>
-                    <option value="green">Vert</option>
-                    <option value="blue">Bleu</option>
-                    <option value="wood">Bois</option>
-                    <option value="marble">Marbre</option>
-                    <option value="pink">Rose</option>
-                    <option value="purple">Violet</option>
-                    <option value="metal">Métal</option>
-                    <option value="ocean">Océan</option>
-                    <option value="forest">Forêt</option>
-                </select>
-            </div>
+    <h4>🎨 Thème de l'échiquier</h4>
+    <select id="boardTheme" onchange="changeBoardTheme()">
+        <option value="classic">Classique (Marron)</option>
+        <option value="green">Vert</option>
+        <option value="blue">Bleu</option>
+        <option value="wood">Bois</option>
+        <option value="marble">Marbre</option>
+        <option value="pink">Rose</option>
+        <option value="purple">Violet</option>
+        <option value="metal">Métal</option>
+        <option value="ocean">Océan</option>
+        <option value="forest">Forêt</option>
+    </select>
+</div>
+<div class="theme-selector">
+    <h4>♟️ Style des pièces</h4>
+    <select id="pieceTheme" onchange="changePieceTheme()">
+        <option value="classic">Classique</option>
+        <option value="modern">Moderne</option>
+        <option value="gold">Doré</option>
+        <option value="crystal">Cristal</option>
+        <option value="neon">Néon</option>
+    </select>
+</div>
+<div class="captured-pieces">
+    <h4>🏴 Pièces capturées</h4>
+    <div class="captured-row">
+        <span class="captured-label">Blanches :</span>
+        <div class="captured-list" id="whiteCaptured"></div>
+    </div>
+    <div class="captured-row">
+        <span class="captured-label">Noires :</span>
+        <div class="captured-list" id="blackCaptured"></div>
+    </div>
+</div>
             <div class="move-history"><h3>📜 Historique des coups</h3><div id="moveHistoryList"></div></div>
             <div class="controls">
                 <button class="btn btn-primary" onclick="newGame()">Nouvelle partie</button>
@@ -183,8 +357,10 @@
        // Remplacer tout le JavaScript dans index.html par ce code corrigé :
 
 let socket, gameId, playerColor, selectedSquare = null, currentGameState = null, moveHistory = [], isReconnecting = false, gameMode = 'multiplayer', aiDifficulty = 3;
-const pieces = { 'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙', 'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟' };
-
+const pieces = { 
+    'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙', 
+    'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟' 
+};
 function changeBoardTheme() {
     const board = document.getElementById('chessBoard');
     const theme = document.getElementById('boardTheme').value;
@@ -192,19 +368,41 @@ function changeBoardTheme() {
     // Retirer toutes les classes de thème d'échiquier
     board.className = board.className.replace(/board-\w+/g, '');
     
-    // Ajouter la nouvelle classe de thème et garder "chess-board"
-    board.className = 'chess-board board-' + theme;
+    // Ajouter la nouvelle classe de thème
+    board.className = 'chess-board board-' + theme + ' ' + (board.className.match(/pieces-\w+/) || ['pieces-classic'])[0];
     
-    // Sauvegarder la préférence
     localStorage.setItem('chess_boardTheme', theme);
+}
+
+function changePieceTheme() {
+    const board = document.getElementById('chessBoard');
+    const theme = document.getElementById('pieceTheme').value;
+    
+    // Retirer toutes les classes de thème de pièces
+    board.className = board.className.replace(/pieces-\w+/g, '');
+    
+    // Ajouter la nouvelle classe de thème
+    board.className = board.className + ' pieces-' + theme;
+    
+    localStorage.setItem('chess_pieceTheme', theme);
 }
 
 function loadThemePreferences() {
     const savedBoardTheme = localStorage.getItem('chess_boardTheme');
+    const savedPieceTheme = localStorage.getItem('chess_pieceTheme');
     
     if (savedBoardTheme) {
         document.getElementById('boardTheme').value = savedBoardTheme;
         changeBoardTheme();
+    }
+    
+    if (savedPieceTheme) {
+        document.getElementById('pieceTheme').value = savedPieceTheme;
+        changePieceTheme();
+    } else {
+        // Appliquer le thème par défaut
+        const board = document.getElementById('chessBoard');
+        board.className += ' pieces-classic';
     }
 }
 
@@ -371,9 +569,16 @@ function updateBoard() {
             if (!square) continue; 
             
             const piece = board[8 - rank][file]; 
-            square.textContent = piece ? pieces[piece] : ''; 
             
-            // CORRECTION: Appliquer la bonne couleur de case
+            // NOUVEAU: Gérer l'affichage des pièces avec couleurs
+            if (piece && pieces[piece]) {
+                square.textContent = pieces[piece];
+                square.setAttribute('data-piece-color', piece === piece.toUpperCase() ? 'white' : 'black');
+            } else {
+                square.textContent = '';
+                square.removeAttribute('data-piece-color');
+            }
+            
             square.className = `square ${(rank + file) % 2 === 0 ? 'light' : 'dark'}`; 
             
             if (moveHistory.length > 0) { 
@@ -383,14 +588,11 @@ function updateBoard() {
                 } 
             } 
         } 
-    } 
+    }
     
-    // Debug pour vérifier les couleurs ET l'orientation
-    console.log(`🔍 Case h1 (bas-droite blancs): ${document.getElementById('h1')?.className.includes('light') ? 'BLANCHE ✅' : 'NOIRE ❌'}`);
-    console.log(`🔍 Case a8 (bas-droite noirs): ${document.getElementById('a8')?.className.includes('light') ? 'BLANCHE ✅' : 'NOIRE ❌'}`);
-    console.log(`🔍 Roi blanc: ${document.getElementById('e1')?.textContent} | Roi noir: ${document.getElementById('e8')?.textContent}`);
+    // NOUVEAU: Mettre à jour les pièces capturées
+    updateCapturedPieces();
 }
-
 // Fonction utilitaire pour déboguer l'orientation (optionnelle)
 function debugBoardOrientation() {
     console.log(`🎯 Joueur: ${playerColor || 'non défini'}`);
@@ -462,8 +664,17 @@ function updateBoardOptimistic(from, to) {
     const fromSquare = document.getElementById(from); 
     const toSquare = document.getElementById(to); 
     if (fromSquare && toSquare) { 
+        // Copier les attributs de couleur
+        const pieceColor = fromSquare.getAttribute('data-piece-color');
+        
         toSquare.textContent = fromSquare.textContent; 
+        if (pieceColor) {
+            toSquare.setAttribute('data-piece-color', pieceColor);
+        }
+        
         fromSquare.textContent = ''; 
+        fromSquare.removeAttribute('data-piece-color');
+        
         document.querySelectorAll('.last-move').forEach(sq => sq.classList.remove('last-move')); 
         fromSquare.classList.add('last-move'); 
         toSquare.classList.add('last-move'); 
@@ -523,6 +734,68 @@ function leaveGame() {
         location.reload(); 
     } 
 }
+
+function updateCapturedPieces() {
+    const captured = getCapturedPieces();
+    
+    const whiteCapturedDiv = document.getElementById('whiteCaptured');
+    const blackCapturedDiv = document.getElementById('blackCaptured');
+    
+    if (whiteCapturedDiv) {
+        whiteCapturedDiv.innerHTML = captured.white.map(piece => 
+            `<span class="captured-piece white">${pieces[piece]}</span>`
+        ).join('');
+    }
+    
+    if (blackCapturedDiv) {
+        blackCapturedDiv.innerHTML = captured.black.map(piece => 
+            `<span class="captured-piece black">${pieces[piece]}</span>`
+        ).join('');
+    }
+}
+
+function getCapturedPieces() {
+    // Pièces de départ
+    const startingPieces = {
+        'K': 1, 'Q': 1, 'R': 2, 'B': 2, 'N': 2, 'P': 8,
+        'k': 1, 'q': 1, 'r': 2, 'b': 2, 'n': 2, 'p': 8
+    };
+    
+    // Compter les pièces actuelles sur l'échiquier
+    const currentPieces = {};
+    Object.keys(startingPieces).forEach(piece => currentPieces[piece] = 0);
+    
+    if (currentGameState) {
+        const board = fenToBoard(currentGameState);
+        for (let rank = 0; rank < 8; rank++) {
+            for (let file = 0; file < 8; file++) {
+                const piece = board[rank][file];
+                if (piece && currentPieces.hasOwnProperty(piece)) {
+                    currentPieces[piece]++;
+                }
+            }
+        }
+    }
+    
+    // Calculer les pièces capturées
+    const captured = { white: [], black: [] };
+    
+    Object.keys(startingPieces).forEach(piece => {
+        const missing = startingPieces[piece] - currentPieces[piece];
+        const isWhitePiece = piece === piece.toUpperCase();
+        
+        for (let i = 0; i < missing; i++) {
+            if (isWhitePiece) {
+                captured.white.push(piece);
+            } else {
+                captured.black.push(piece);
+            }
+        }
+    });
+    
+    return captured;
+}
+
 
 // Gestionnaire des événements DOM
 document.addEventListener('DOMContentLoaded', () => { 
