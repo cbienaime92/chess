@@ -69,7 +69,7 @@ app.get('/admin', (req, res) => {
 });
 
 // Fonction pour faire jouer l'IA
-function makeAIMove(gameId) {
+async function makeAIMove(gameId) {
     const game = gameManager.getGame(gameId);
     if (!game || !game.isAIGame || game.gameState !== 'playing') {
         return;
@@ -77,29 +77,37 @@ function makeAIMove(gameId) {
 
     console.log(`🤖 IA réfléchit pour la partie ${gameId}...`);
     
-    const aiMove = game.engine.getBestMove();
-    
-    if (aiMove) {
-        console.log(`🎯 IA joue: ${aiMove.from} → ${aiMove.to}`);
+    try {
+        // CHANGEMENT: await pour l'appel asynchrone à Stockfish
+        const aiMove = await game.engine.getBestMove();
         
-        const result = gameManager.makeAIMove(gameId, aiMove);
-        
-        if (result.success) {
-            io.to(gameId).emit('move-made', {
-                move: result.move,
-                gameState: result.gameState,
-                moveHistory: game.moveHistory,
-                turn: game.chess.turn(),
-                isAIMove: true
-            });
+        if (aiMove) {
+            console.log(`🎯 IA joue: ${aiMove.from} → ${aiMove.to} (${aiMove.san})`);
             
-            if (game.gameState === 'finished') {
-                const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
-                io.to(gameId).emit('game-over', endResult);
+            const result = gameManager.makeAIMove(gameId, aiMove);
+            
+            if (result.success) {
+                io.to(gameId).emit('move-made', {
+                    move: result.move,
+                    gameState: result.gameState,
+                    moveHistory: game.moveHistory,
+                    turn: game.chess.turn(),
+                    isAIMove: true
+                });
+                
+                if (game.gameState === 'finished') {
+                    const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
+                    io.to(gameId).emit('game-over', endResult);
+                }
             }
+        } else {
+            console.log('❌ IA n\'a pas trouvé de coup valide');
         }
+    } catch (error) {
+        console.error('❌ Erreur IA:', error);
     }
 }
+
 
 function getGameOverReason(chess) {
     if (chess.isCheckmate()) return 'checkmate';
@@ -207,32 +215,33 @@ io.on('connection', (socket) => {
         // L'IA ne joue jamais en premier, le joueur a toujours les blancs
     });
 
-    socket.on('make-move', (data) => {
-        const { gameId, move } = data;
-        const result = gameManager.makeMove(socket.id, gameId, move);
+    socket.on('make-move', async (data) => {
+    const { gameId, move } = data;
+    const result = gameManager.makeMove(socket.id, gameId, move);
 
-        if (result.success) {
-            io.to(gameId).emit('move-made', {
-                move: result.move,
-                gameState: result.gameState,
-                moveHistory: gameManager.getGame(gameId).moveHistory,
-                turn: gameManager.getGame(gameId).chess.turn()
-            });
+    if (result.success) {
+        io.to(gameId).emit('move-made', {
+            move: result.move,
+            gameState: result.gameState,
+            moveHistory: gameManager.getGame(gameId).moveHistory,
+            turn: gameManager.getGame(gameId).chess.turn()
+        });
 
-            const game = gameManager.getGame(gameId);
-            if (game && game.gameState === 'finished') {
-                const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
-                io.to(gameId).emit('game-over', endResult);
-            } else if (game && game.isAIGame && game.chess.turn() === 'b') {
-                // C'est le tour de l'IA
-                setTimeout(() => {
-                    makeAIMove(gameId);
-                }, Math.random() * 1000 + 500);
-            }
-        } else {
-            socket.emit('invalid-move', result.error);
+        const game = gameManager.getGame(gameId);
+        if (game && game.gameState === 'finished') {
+            const endResult = gameManager.endGame(gameId, getGameOverReason(game.chess));
+            io.to(gameId).emit('game-over', endResult);
+        } else if (game && game.isAIGame && game.chess.turn() === 'b') {
+            // CHANGEMENT: utiliser await avec makeAIMove
+            setTimeout(async () => {
+                await makeAIMove(gameId);
+            }, Math.random() * 1000 + 500);
         }
-    });
+    } else {
+        socket.emit('invalid-move', result.error);
+    }
+});
+
 
     socket.on('new-game', (data) => {
         const { gameId } = data;
@@ -277,7 +286,27 @@ io.on('connection', (socket) => {
         }
     });
 });
+process.on('SIGTERM', () => {
+    console.log('🛑 Arrêt du serveur...');
+    // Nettoyer les moteurs Stockfish
+    gameManager.getAllGames().forEach(game => {
+        if (game.engine && game.engine.cleanup) {
+            game.engine.cleanup();
+        }
+    });
+    process.exit(0);
+});
 
+process.on('SIGINT', () => {
+    console.log('🛑 Arrêt du serveur (Ctrl+C)...');
+    // Nettoyer les moteurs Stockfish
+    gameManager.getAllGames().forEach(game => {
+        if (game.engine && game.engine.cleanup) {
+            game.engine.cleanup();
+        }
+    });
+    process.exit(0);
+});
 // Nettoyage périodique
 setInterval(() => {
     gameManager.cleanupOldGames();
